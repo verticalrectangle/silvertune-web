@@ -195,7 +195,7 @@ async function startAudio() {
   const source = audioCtx.createMediaStreamSource(stream);
   analyser = audioCtx.createAnalyser();
   analyser.fftSize = 2048;
-  analyser.smoothingTimeConstant = 0.5;
+  analyser.smoothingTimeConstant = 0.0;
   source.connect(analyser);
   source.connect(audioCtx.destination);
   bufferLength = analyser.frequencyBinCount;
@@ -361,10 +361,10 @@ function frame() {
     }
     amplitude = Math.sqrt(sum / bufferLength);
   }
-  smoothAmplitude += (amplitude - smoothAmplitude) * 0.25;
+  smoothAmplitude = amplitude;
 
-  // background fade
-  ctx.fillStyle = 'rgba(0,0,0,0.18)';
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = '#000';
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
   updateBokeh();
