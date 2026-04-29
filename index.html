@@ -6,117 +6,90 @@
 <title>Silvertune</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { background: #000; overflow: hidden; font-family: 'Helvetica Neue', sans-serif; }
-  canvas { display: block; }
+  body { background: #06000a; overflow: hidden; font-family: 'Helvetica Neue', Arial, sans-serif; }
+  canvas { display: block; position: fixed; inset: 0; }
 
-  #controls {
-    position: fixed;
-    bottom: 32px;
-    left: 32px;
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    opacity: 1;
-    transition: opacity 0.5s;
-    z-index: 10;
+  #ui {
+    position: fixed; inset: 0; pointer-events: none;
+    display: flex; flex-direction: column;
+    justify-content: space-between;
+    padding: 32px;
+    transition: opacity 0.4s;
   }
-  #controls.hidden { opacity: 0; pointer-events: none; }
+  #ui.hidden { opacity: 0; pointer-events: none; }
 
-  .ctrl {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
-  .ctrl label {
-    color: rgba(255,255,255,0.5);
-    font-size: 11px;
-    letter-spacing: 0.15em;
-    text-transform: uppercase;
-    width: 52px;
-  }
-  .ctrl input[type=range] {
-    -webkit-appearance: none;
-    width: 140px;
-    height: 2px;
-    background: rgba(255,255,255,0.15);
-    outline: none;
-    border-radius: 2px;
-  }
-  .ctrl input[type=range]::-webkit-slider-thumb {
-    -webkit-appearance: none;
-    width: 12px;
-    height: 12px;
-    border-radius: 50%;
-    background: #fff;
-    cursor: pointer;
-  }
-  .ctrl select {
-    background: transparent;
-    border: 1px solid rgba(255,255,255,0.15);
-    color: rgba(255,255,255,0.6);
-    font-size: 11px;
-    letter-spacing: 0.1em;
-    padding: 2px 6px;
-    outline: none;
-    cursor: pointer;
-  }
-  .ctrl select option { background: #111; }
-
-  #hint {
-    position: fixed;
-    bottom: 32px;
-    right: 32px;
-    color: rgba(255,255,255,0.2);
-    font-size: 11px;
-    letter-spacing: 0.1em;
+  #top {
+    display: flex; justify-content: space-between; align-items: flex-start;
   }
 
-  #label {
-    position: fixed;
-    top: 40px;
-    left: 50%;
-    transform: translateX(-50%);
-    text-align: center;
-    pointer-events: none;
-    transition: opacity 0.5s;
-  }
-  #label.hidden { opacity: 0; }
-  #label-key {
-    font-size: 64px;
-    font-weight: 200;
-    color: rgba(255,255,255,0.85);
-    letter-spacing: 0.05em;
+  #note-display {
     line-height: 1;
   }
-  #label-scale {
-    font-size: 13px;
-    letter-spacing: 0.3em;
-    color: rgba(255,255,255,0.3);
+  #note-corrected {
+    font-size: 80px; font-weight: 100;
+    color: #ff6ec7;
+    text-shadow: 0 0 40px #ff6ec7, 0 0 80px #c46fff;
+    letter-spacing: 0.02em;
+  }
+  #note-detected {
+    font-size: 14px; letter-spacing: 0.2em;
+    color: rgba(180,100,255,0.5);
+    margin-top: 4px;
+  }
+  #scale-label {
+    font-size: 11px; letter-spacing: 0.3em;
+    color: rgba(255,255,255,0.2);
     margin-top: 6px;
+    text-transform: uppercase;
+  }
+
+  #controls {
+    pointer-events: all;
+    display: flex; flex-direction: column; gap: 10px;
+    align-items: flex-end;
+  }
+  .ctrl {
+    display: flex; align-items: center; gap: 10px; justify-content: flex-end;
+  }
+  .ctrl label {
+    color: rgba(255,255,255,0.35); font-size: 11px;
+    letter-spacing: 0.15em; text-transform: uppercase; width: 48px; text-align: right;
+  }
+  .ctrl input[type=range] {
+    -webkit-appearance: none; width: 120px; height: 1px;
+    background: rgba(255,110,199,0.2); outline: none; border-radius: 2px;
+  }
+  .ctrl input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 10px; height: 10px;
+    border-radius: 50%; background: #ff6ec7; cursor: pointer;
+    box-shadow: 0 0 8px #ff6ec7;
+  }
+  .ctrl select {
+    background: transparent; border: 1px solid rgba(255,110,199,0.2);
+    color: rgba(255,110,199,0.6); font-size: 11px; letter-spacing: 0.1em;
+    padding: 3px 8px; outline: none; cursor: pointer; pointer-events: all;
+  }
+  .ctrl select option { background: #1a0028; }
+
+  #hint {
+    font-size: 10px; letter-spacing: 0.1em;
+    color: rgba(255,255,255,0.15);
+    align-self: flex-end; pointer-events: none;
   }
 
   #start-overlay {
-    position: fixed;
-    inset: 0;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    background: #000;
-    z-index: 100;
-    cursor: pointer;
-    gap: 16px;
+    position: fixed; inset: 0; z-index: 100;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 20px;
+    background: #06000a; cursor: pointer;
   }
   #start-overlay h1 {
-    font-size: 48px;
-    font-weight: 100;
-    letter-spacing: 0.3em;
-    color: #fff;
+    font-size: 52px; font-weight: 100; letter-spacing: 0.4em;
+    color: #ff6ec7;
+    text-shadow: 0 0 60px #ff6ec7, 0 0 120px #c46fff;
   }
   #start-overlay p {
-    font-size: 13px;
-    letter-spacing: 0.2em;
-    color: rgba(255,255,255,0.3);
+    font-size: 12px; letter-spacing: 0.25em; color: rgba(255,255,255,0.25);
   }
 </style>
 </head>
@@ -124,277 +97,453 @@
 
 <div id="start-overlay">
   <h1>SILVERTUNE</h1>
-  <p>CLICK TO BEGIN</p>
+  <p>CLICK TO BEGIN &nbsp;·&nbsp; USE HEADPHONES</p>
 </div>
 
 <canvas id="c"></canvas>
 
-<div id="label">
-  <div id="label-key">C</div>
-  <div id="label-scale">CHROMATIC</div>
+<div id="ui">
+  <div id="top">
+    <div id="note-display">
+      <div id="note-corrected">—</div>
+      <div id="note-detected"></div>
+      <div id="scale-label">CHROMATIC</div>
+    </div>
+    <div id="controls">
+      <div class="ctrl">
+        <label>Key</label>
+        <select id="sel-key">
+          <option value="0">C</option><option value="1">C#</option>
+          <option value="2">D</option><option value="3">D#</option>
+          <option value="4">E</option><option value="5">F</option>
+          <option value="6">F#</option><option value="7">G</option>
+          <option value="8">G#</option><option value="9">A</option>
+          <option value="10">A#</option><option value="11">B</option>
+        </select>
+      </div>
+      <div class="ctrl">
+        <label>Scale</label>
+        <select id="sel-scale">
+          <option value="0">Chromatic</option>
+          <option value="1" selected>Major</option>
+          <option value="2">Minor</option>
+        </select>
+      </div>
+      <div class="ctrl">
+        <label>Tune</label>
+        <input type="range" id="sl-tune" min="0" max="100" value="100">
+      </div>
+      <div class="ctrl">
+        <label>Wide</label>
+        <input type="range" id="sl-wide" min="0" max="100" value="50">
+      </div>
+    </div>
+  </div>
+  <div id="hint">H · hide &nbsp; F · fullscreen</div>
 </div>
-
-<div id="controls">
-  <div class="ctrl">
-    <label>Key</label>
-    <select id="sel-key">
-      <option value="0">C</option><option value="1">C#</option>
-      <option value="2">D</option><option value="3">D#</option>
-      <option value="4">E</option><option value="5">F</option>
-      <option value="6">F#</option><option value="7">G</option>
-      <option value="8">G#</option><option value="9">A</option>
-      <option value="10">A#</option><option value="11">B</option>
-    </select>
-  </div>
-  <div class="ctrl">
-    <label>Scale</label>
-    <select id="sel-scale">
-      <option value="0">Chromatic</option>
-      <option value="1" selected>Major</option>
-      <option value="2">Minor</option>
-    </select>
-  </div>
-  <div class="ctrl">
-    <label>Tune</label>
-    <input type="range" id="sl-tune" min="0" max="100" value="80">
-  </div>
-  <div class="ctrl">
-    <label>Wide</label>
-    <input type="range" id="sl-wide" min="0" max="100" value="50">
-  </div>
-</div>
-
-<div id="hint">H — hide controls &nbsp;·&nbsp; F — fullscreen</div>
 
 <script>
+// --- constants ---
 const KEYS = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
 const SCALE_NAMES = ['CHROMATIC','MAJOR','MINOR'];
+const SCALE_INTERVALS = [
+  [0,1,2,3,4,5,6,7,8,9,10,11],
+  [0,2,4,5,7,9,11],
+  [0,2,3,5,7,8,10],
+];
+const WHITE_NOTES = [0,2,4,5,7,9,11];
+const BLACK_NOTES = [1,3,6,8,10];
+// black key x positions as fraction of one octave width (7 white keys)
+const BLACK_X_FRAC = [1/7*1-0.03, 1/7*2-0.03, 1/7*4-0.03, 1/7*5-0.03, 1/7*6-0.03];
 
 // --- state ---
-let tune = 0.8, wide = 0.5, keyIdx = 0, scaleIdx = 1;
-let controlsHidden = false;
+let tune = 1.0, wide = 0.5, keyIdx = 0, scaleIdx = 1;
+let uiHidden = false;
+let detectedHz = 0, detectedNote = -1, correctedNote = -1, correctionRatio = 1.0;
+let smoothRatio = 1.0, smoothAmp = 0;
 
-// --- canvas setup ---
-const canvas = document.querySelector('#c');
+// --- canvas ---
+const canvas = document.getElementById('c');
 const ctx = canvas.getContext('2d');
-
-function resize() {
-  canvas.width  = window.innerWidth;
-  canvas.height = window.innerHeight;
-}
+function resize() { canvas.width = innerWidth; canvas.height = innerHeight; }
 resize();
-window.addEventListener('resize', resize);
+addEventListener('resize', resize);
+
+// --- pitch math (same as pedal/plugin) ---
+function hzToMidi(hz) { return 69 + 12 * Math.log2(hz / 440); }
+function midiToHz(midi) { return 440 * Math.pow(2, (midi - 69) / 12); }
+
+function quantizeToScale(midiNote, root, scaleIdx) {
+  const intervals = SCALE_INTERVALS[scaleIdx];
+  let best = midiNote, bestDist = 999;
+  const baseOctave = Math.floor(midiNote / 12);
+  for (let oct = baseOctave - 1; oct <= baseOctave + 1; oct++) {
+    for (const iv of intervals) {
+      const candidate = oct * 12 + root + iv;
+      const d = Math.abs(candidate - midiNote);
+      if (d < bestDist) { bestDist = d; best = candidate; }
+    }
+  }
+  return best;
+}
+
+// --- YIN pitch detector (same algorithm as yin.cpp) ---
+function yinDetect(buf, sr) {
+  const N = buf.length;
+  const HALF = Math.floor(N / 2);
+  const diff = new Float32Array(HALF);
+
+  for (let tau = 0; tau < HALF; tau++) {
+    let sum = 0;
+    for (let j = 0; j < HALF; j++) {
+      const d = buf[j] - buf[j + tau];
+      sum += d * d;
+    }
+    diff[tau] = sum;
+  }
+
+  diff[0] = 1.0;
+  let running = 0;
+  for (let tau = 1; tau < HALF; tau++) {
+    running += diff[tau];
+    diff[tau] = diff[tau] * tau / running;
+  }
+
+  let tauEst = 0;
+  for (let tau = 2; tau < HALF; tau++) {
+    if (diff[tau] < 0.15) {
+      while (tau + 1 < HALF && diff[tau + 1] < diff[tau]) tau++;
+      tauEst = tau;
+      break;
+    }
+  }
+  if (tauEst === 0) return { hz: 0, confidence: 0 };
+
+  const s0 = diff[tauEst - 1];
+  const s1 = diff[tauEst];
+  const s2 = diff[Math.min(tauEst + 1, HALF - 1)];
+  let shift = 0;
+  const denom = 2 * (2 * s1 - s2 - s0);
+  if (Math.abs(denom) > 1e-12) shift = (s0 - s2) / denom;
+
+  return { hz: sr / (tauEst + shift), confidence: Math.max(0, Math.min(1, 1 - s1)) };
+}
 
 // --- audio ---
-let analyser, dataArray, bufferLength;
-let amplitude = 0, smoothAmplitude = 0;
+let analyser, sr, timeDomain, freqDomain, bufLen;
 
 async function startAudio() {
   const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-  const audioCtx = new AudioContext();
-  const source = audioCtx.createMediaStreamSource(stream);
-  analyser = audioCtx.createAnalyser();
+  const actx = new AudioContext();
+  sr = actx.sampleRate;
+  const source = actx.createMediaStreamSource(stream);
+  analyser = actx.createAnalyser();
   analyser.fftSize = 2048;
   analyser.smoothingTimeConstant = 0.0;
   source.connect(analyser);
-  source.connect(audioCtx.destination);
-  bufferLength = analyser.frequencyBinCount;
-  dataArray = new Uint8Array(bufferLength);
+  source.connect(actx.destination);
+  bufLen = analyser.fftSize;
+  timeDomain = new Float32Array(bufLen);
+  freqDomain = new Uint8Array(analyser.frequencyBinCount);
 }
 
-// --- bokeh particles ---
-const NUM_BOKEH = 55;
-const bokeh = Array.from({ length: NUM_BOKEH }, () => makeBokeh());
-
-function makeBokeh() {
+// --- bokeh ---
+const NUM_BOKEH = 50;
+const bokeh = Array.from({ length: NUM_BOKEH }, spawnBokeh);
+function spawnBokeh() {
   return {
-    x: Math.random() * window.innerWidth,
-    y: Math.random() * window.innerHeight,
-    r: 20 + Math.random() * 120,
-    speed: 0.08 + Math.random() * 0.18,
-    drift: (Math.random() - 0.5) * 0.3,
+    x: Math.random() * innerWidth,
+    y: Math.random() * innerHeight,
+    r: 15 + Math.random() * 100,
+    vy: 0.05 + Math.random() * 0.15,
+    vx: (Math.random() - 0.5) * 0.2,
     phase: Math.random() * Math.PI * 2,
-    alpha: 0.03 + Math.random() * 0.07,
+    hShift: (Math.random() - 0.5) * 30,
   };
 }
 
-function updateBokeh() {
-  for (const b of bokeh) {
-    b.y -= b.speed * (1 + smoothAmplitude * 1.5);
-    b.x += b.drift;
-    b.phase += 0.005;
-    if (b.y + b.r < 0) {
-      b.x = Math.random() * canvas.width;
-      b.y = canvas.height + b.r;
-      b.r = 20 + Math.random() * 120;
-    }
-  }
-}
-
-function pkHue(keyIdx) {
-  // pink-purple band: 270 (violet) to 340 (hot pink), spread across 12 keys
-  return 270 + (keyIdx / 11) * 70;
-}
-
 function drawBokeh() {
+  const t = performance.now() / 1000;
   for (const b of bokeh) {
-    const pulse = 1 + wide * 0.5 * Math.sin(b.phase);
+    b.phase += 0.004;
+    b.y -= b.vy * (1 + smoothAmp * 2 + wide * 0.5);
+    b.x += b.vx;
+    if (b.y + b.r < 0) { Object.assign(b, spawnBokeh()); b.y = canvas.height + b.r; }
+
+    const pulse = 1 + wide * 0.4 * Math.sin(b.phase);
     const r = b.r * pulse;
-    const hue = pkHue(keyIdx) + (b.phase % 40) - 20;
-    const sat = 70 + wide * 30;
-    const alpha = b.alpha * (0.6 + wide * 1.2) * (0.7 + smoothAmplitude * 2.5);
-    const grd = ctx.createRadialGradient(b.x, b.y, 0, b.x, b.y, r);
-    grd.addColorStop(0, `hsla(${hue},${sat}%,85%,${alpha})`);
-    grd.addColorStop(1, `hsla(${hue},${sat}%,65%,0)`);
+    const hue = 300 + b.hShift + (keyIdx / 11) * 40;
+    const alpha = (0.04 + wide * 0.06) * (0.5 + smoothAmp * 1.5) * (0.6 + smoothRatio * 0.4);
+    const g = ctx.createRadialGradient(b.x, b.y, 0, b.x, b.y, r);
+    g.addColorStop(0, `hsla(${hue},90%,80%,${alpha})`);
+    g.addColorStop(1, `hsla(${hue},90%,60%,0)`);
     ctx.beginPath();
     ctx.arc(b.x, b.y, r, 0, Math.PI * 2);
-    ctx.fillStyle = grd;
+    ctx.fillStyle = g;
     ctx.fill();
   }
 }
 
-// --- wave ---
-let wavePoints = [];
-const WAVE_SEGMENTS = 180;
-
+// --- waveform ---
 function drawWave() {
+  if (!analyser) return;
   const W = canvas.width, H = canvas.height;
-  const cy = H / 2;
+  const cy = H * 0.48;
+  const t = performance.now() / 1000;
 
-  // build wave from audio data or idle sine
+  analyser.getByteTimeDomainData(freqDomain);
+  analyser.getFloatTimeDomainData(timeDomain);
+
+  // correction amount drives glow: more correction = more glow
+  const correctionAmount = Math.abs(smoothRatio - 1.0) * tune;
+  const glow = correctionAmount * 6;
+
+  // build points
   const pts = [];
-  const time = performance.now() / 1000;
-
-  for (let i = 0; i <= WAVE_SEGMENTS; i++) {
-    const t = i / WAVE_SEGMENTS;
-    const x = t * W;
-
-    let y = 0;
-    if (analyser && smoothAmplitude > 0.005) {
-      const idx = Math.floor(t * (bufferLength / 2));
-      const raw = (dataArray[idx] / 128.0) - 1.0;
-      y = raw * smoothAmplitude * H * 0.55;
-    }
-
-    // base undulation — always present
-    y += Math.sin(t * Math.PI * 3 + time * 0.7) * (10 + tune * 20);
-    y += Math.sin(t * Math.PI * 7 - time * 1.1) * (4 + tune * 10);
-
-    // tune sharpness
-    if (analyser) {
-      const idx2 = Math.floor(t * bufferLength * 0.4);
-      const raw2 = (dataArray[idx2] / 128.0) - 1.0;
-      y += raw2 * tune * smoothAmplitude * H * 0.3;
-    }
-
-    pts.push({ x, y: cy + y });
+  for (let i = 0; i <= 256; i++) {
+    const frac = i / 256;
+    const idx = Math.floor(frac * (bufLen - 1));
+    const raw = timeDomain[idx];
+    const y = cy + raw * smoothAmp * H * 0.45;
+    pts.push({ x: frac * W, y });
   }
 
-  // glow passes
-  const hue = pkHue(keyIdx);
-  const glowPasses = [
-    { blur: 48, alpha: 0.15 + tune * 0.25, width: 10 },
-    { blur: 16, alpha: 0.35 + tune * 0.4,  width: 3.5 },
-    { blur: 2,  alpha: 0.85 + tune * 0.15, width: 1.5 },
-  ];
-
-  for (const pass of glowPasses) {
+  // outer glow — correction-driven
+  if (glow > 0.01) {
     ctx.save();
-    ctx.shadowBlur = pass.blur;
-    ctx.shadowColor = `hsla(${hue},100%,80%,1)`;
-    ctx.strokeStyle = `hsla(${hue},90%,85%,${pass.alpha})`;
-    ctx.lineWidth = pass.width;
-    ctx.beginPath();
-    ctx.moveTo(pts[0].x, pts[0].y);
-    for (let i = 1; i < pts.length - 2; i++) {
-      const mx = (pts[i].x + pts[i+1].x) / 2;
-      const my = (pts[i].y + pts[i+1].y) / 2;
-      ctx.quadraticCurveTo(pts[i].x, pts[i].y, mx, my);
-    }
-    ctx.stroke();
+    ctx.shadowBlur = 60 + glow * 40;
+    ctx.shadowColor = '#c46fff';
+    ctx.strokeStyle = `rgba(196,111,255,${0.08 + glow * 0.15})`;
+    ctx.lineWidth = 12;
+    drawPath(pts);
     ctx.restore();
   }
 
-  // wide shimmer: second wave offset
-  if (wide > 0.05) {
-    const shimmerAlpha = wide * 0.5;
-    const hue2 = hue + 35 > 360 ? hue - 25 : hue + 35;
+  // mid glow
+  ctx.save();
+  ctx.shadowBlur = 20 + glow * 20;
+  ctx.shadowColor = '#ff6ec7';
+  ctx.strokeStyle = `rgba(255,110,199,${0.2 + glow * 0.3})`;
+  ctx.lineWidth = 4;
+  drawPath(pts);
+  ctx.restore();
+
+  // core line
+  ctx.save();
+  ctx.shadowBlur = 4;
+  ctx.shadowColor = '#fff';
+  ctx.strokeStyle = `rgba(255,220,240,${0.7 + glow * 0.3})`;
+  ctx.lineWidth = 1.5;
+  drawPath(pts);
+  ctx.restore();
+
+  // wide shimmer — second wave slightly offset
+  if (wide > 0.05 && smoothAmp > 0.01) {
     ctx.save();
-    ctx.globalAlpha = shimmerAlpha;
-    ctx.shadowBlur = 28;
-    ctx.shadowColor = `hsla(${hue2},100%,80%,1)`;
-    ctx.strokeStyle = `hsla(${hue2},80%,85%,0.7)`;
+    ctx.globalAlpha = wide * 0.3;
+    ctx.shadowBlur = 16;
+    ctx.shadowColor = '#c46fff';
+    ctx.strokeStyle = 'rgba(196,111,255,0.5)';
     ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    for (let i = 0; i <= WAVE_SEGMENTS; i++) {
-      const t = i / WAVE_SEGMENTS;
-      const x = pts[i].x;
-      const shimmer = Math.sin(t * Math.PI * 5 + time * 1.8) * wide * smoothAmplitude * H * 0.08;
-      const y = pts[i].y + shimmer + wide * 12 * Math.sin(t * Math.PI + time);
-      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-    }
-    ctx.stroke();
+    const pts2 = pts.map((p, i) => ({
+      x: p.x,
+      y: p.y + Math.sin(i / 20 + t * 2) * wide * smoothAmp * H * 0.06 + wide * 8
+    }));
+    drawPath(pts2);
     ctx.restore();
+  }
+}
+
+function drawPath(pts) {
+  ctx.beginPath();
+  ctx.moveTo(pts[0].x, pts[0].y);
+  for (let i = 1; i < pts.length - 2; i++) {
+    const mx = (pts[i].x + pts[i+1].x) / 2;
+    const my = (pts[i].y + pts[i+1].y) / 2;
+    ctx.quadraticCurveTo(pts[i].x, pts[i].y, mx, my);
+  }
+  ctx.stroke();
+}
+
+// --- piano ---
+function drawPiano() {
+  const W = canvas.width, H = canvas.height;
+  const pw = Math.min(W * 0.7, 560);
+  const px = (W - pw) / 2;
+  const py = H - 140;
+  const ww = pw / 7;
+  const wh = 90;
+  const bw = ww * 0.55;
+  const bh = wh * 0.6;
+
+  // white keys
+  for (let i = 0; i < 7; i++) {
+    const note = WHITE_NOTES[i];
+    const x = px + i * ww;
+    const isDetected = note === (detectedNote % 12) && detectedNote >= 0;
+    const isCorrected = note === (correctedNote % 12) && correctedNote >= 0;
+
+    ctx.beginPath();
+    ctx.rect(x + 1, py, ww - 2, wh);
+    if (isCorrected) {
+      ctx.fillStyle = '#ff6ec7';
+      ctx.shadowBlur = 30; ctx.shadowColor = '#ff6ec7';
+    } else if (isDetected) {
+      ctx.fillStyle = 'rgba(196,111,255,0.5)';
+      ctx.shadowBlur = 0;
+    } else {
+      ctx.fillStyle = 'rgba(255,255,255,0.06)';
+      ctx.shadowBlur = 0;
+    }
+    ctx.fill();
+    ctx.shadowBlur = 0;
+
+    ctx.strokeStyle = 'rgba(255,255,255,0.1)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  }
+
+  // black keys
+  const blackFracs = [1, 2, 4, 5, 6];
+  for (let i = 0; i < 5; i++) {
+    const note = BLACK_NOTES[i];
+    const x = px + blackFracs[i] * ww - bw / 2;
+    const isDetected = note === (detectedNote % 12) && detectedNote >= 0;
+    const isCorrected = note === (correctedNote % 12) && correctedNote >= 0;
+
+    ctx.beginPath();
+    ctx.rect(x, py, bw, bh);
+    if (isCorrected) {
+      ctx.fillStyle = '#ff6ec7';
+      ctx.shadowBlur = 20; ctx.shadowColor = '#ff6ec7';
+    } else if (isDetected) {
+      ctx.fillStyle = 'rgba(196,111,255,0.6)';
+      ctx.shadowBlur = 0;
+    } else {
+      ctx.fillStyle = 'rgba(10,0,20,0.85)';
+      ctx.shadowBlur = 0;
+    }
+    ctx.fill();
+    ctx.shadowBlur = 0;
+
+    ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+    ctx.lineWidth = 0.5;
+    ctx.stroke();
   }
 }
 
 // --- vignette ---
 function drawVignette() {
   const W = canvas.width, H = canvas.height;
-  const grd = ctx.createRadialGradient(W/2, H/2, H*0.2, W/2, H/2, H*0.85);
-  grd.addColorStop(0, 'rgba(0,0,0,0)');
-  grd.addColorStop(1, 'rgba(0,0,0,0.75)');
-  ctx.fillStyle = grd;
+  const g = ctx.createRadialGradient(W/2, H/2, H*0.15, W/2, H/2, H*0.85);
+  g.addColorStop(0, 'rgba(0,0,0,0)');
+  g.addColorStop(1, 'rgba(6,0,10,0.8)');
+  ctx.fillStyle = g;
   ctx.fillRect(0, 0, W, H);
+}
+
+// --- update note display ---
+function updateNoteDisplay() {
+  const corrEl = document.getElementById('note-corrected');
+  const detEl  = document.getElementById('note-detected');
+
+  if (correctedNote >= 0) {
+    const cn = KEYS[correctedNote % 12];
+    corrEl.textContent = cn;
+    corrEl.style.textShadow = `0 0 40px #ff6ec7, 0 0 80px #c46fff`;
+
+    if (detectedNote >= 0 && detectedNote !== correctedNote) {
+      detEl.textContent = KEYS[detectedNote % 12] + ' → ' + cn;
+    } else {
+      detEl.textContent = '';
+    }
+  } else {
+    corrEl.textContent = '—';
+    detEl.textContent = '';
+  }
+}
+
+// --- pitch processing ---
+let yinBuf = null;
+let yinPos = 0;
+const YIN_BUF = 1024;
+const YIN_HOP = 512;
+
+function processPitch() {
+  if (!analyser) return;
+  analyser.getFloatTimeDomainData(timeDomain);
+
+  if (!yinBuf) yinBuf = new Float32Array(YIN_BUF);
+
+  // push samples
+  for (let i = 0; i < timeDomain.length && yinPos < YIN_BUF; i++) {
+    yinBuf[yinPos++] = timeDomain[i];
+  }
+  if (yinPos < YIN_BUF) return;
+
+  const { hz, confidence } = yinDetect(yinBuf, sr);
+
+  // hop: shift buffer
+  yinBuf.copyWithin(0, YIN_HOP);
+  yinPos = YIN_BUF - YIN_HOP;
+
+  if (hz > 50 && hz < 2000 && confidence > 0.5) {
+    detectedHz = hz;
+    const detMidi = hzToMidi(hz);
+    const detMidiRound = Math.round(detMidi);
+    const corrMidi = quantizeToScale(detMidiRound, keyIdx, scaleIdx);
+    const targetHz = midiToHz(corrMidi);
+
+    let ratio = targetHz / hz;
+    ratio = 1.0 + (ratio - 1.0) * tune;
+    ratio = Math.max(0.5, Math.min(2.0, ratio));
+
+    correctionRatio = ratio;
+    detectedNote = detMidiRound;
+    correctedNote = corrMidi;
+  }
+
+  // compute amplitude from time domain
+  let sum = 0;
+  for (let i = 0; i < timeDomain.length; i++) sum += timeDomain[i] * timeDomain[i];
+  smoothAmp = Math.sqrt(sum / timeDomain.length);
+  smoothRatio = correctionRatio;
 }
 
 // --- main loop ---
 function frame() {
   requestAnimationFrame(frame);
-
-  if (analyser) {
-    analyser.getByteTimeDomainData(dataArray);
-    let sum = 0;
-    for (let i = 0; i < bufferLength; i++) {
-      const v = (dataArray[i] / 128.0) - 1.0;
-      sum += v * v;
-    }
-    amplitude = Math.sqrt(sum / bufferLength);
-  }
-  smoothAmplitude = amplitude;
+  processPitch();
+  updateNoteDisplay();
 
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-  ctx.fillStyle = '#000';
+  ctx.fillStyle = '#06000a';
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  updateBokeh();
   drawBokeh();
   drawWave();
+  drawPiano();
   drawVignette();
 }
 
 // --- controls ---
-document.getElementById('sl-tune').addEventListener('input', e => {
-  tune = e.target.value / 100;
-});
-document.getElementById('sl-wide').addEventListener('input', e => {
-  wide = e.target.value / 100;
-});
+document.getElementById('sl-tune').addEventListener('input', e => tune = e.target.value / 100);
+document.getElementById('sl-wide').addEventListener('input', e => wide = e.target.value / 100);
 document.getElementById('sel-key').addEventListener('change', e => {
   keyIdx = parseInt(e.target.value);
-  document.getElementById('label-key').textContent = KEYS[keyIdx];
+  document.getElementById('scale-label').textContent =
+    KEYS[keyIdx] + ' ' + SCALE_NAMES[scaleIdx];
 });
 document.getElementById('sel-scale').addEventListener('change', e => {
   scaleIdx = parseInt(e.target.value);
-  document.getElementById('label-scale').textContent = SCALE_NAMES[scaleIdx];
+  document.getElementById('scale-label').textContent =
+    scaleIdx === 0 ? 'CHROMATIC' : KEYS[keyIdx] + ' ' + SCALE_NAMES[scaleIdx];
 });
 
 document.addEventListener('keydown', e => {
   if (e.key === 'h' || e.key === 'H') {
-    controlsHidden = !controlsHidden;
-    document.getElementById('controls').classList.toggle('hidden', controlsHidden);
-    document.getElementById('hint').style.opacity = controlsHidden ? '0' : '1';
-    document.getElementById('label').classList.toggle('hidden', controlsHidden);
+    uiHidden = !uiHidden;
+    document.getElementById('ui').classList.toggle('hidden', uiHidden);
   }
   if (e.key === 'f' || e.key === 'F') {
     if (!document.fullscreenElement) document.documentElement.requestFullscreen();
@@ -408,7 +557,6 @@ document.getElementById('start-overlay').addEventListener('click', async () => {
   await startAudio();
   frame();
 });
-
 </script>
 </body>
 </html>
