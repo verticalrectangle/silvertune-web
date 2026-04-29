@@ -90,7 +90,7 @@ document.getElementById('start').addEventListener('click', async () => {
     },
     video: false,
   });
-  const actx = new AudioContext({ latencyHint: 'interactive', sampleRate: 48000 });
+  const actx = new AudioContext({ latencyHint: 0, sampleRate: 48000 });
   const sr = actx.sampleRate;
   const source = actx.createMediaStreamSource(stream);
 

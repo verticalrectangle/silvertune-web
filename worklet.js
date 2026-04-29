@@ -26,7 +26,7 @@ class GrainShifter {
     this.writePos  = 0;
     this.phaseA    = 0.0;
     this.phaseB    = 0.5;
-    this.grainSize = 512;
+    this.grainSize = 256;
   }
 
   process(input, pitchRatio) {
