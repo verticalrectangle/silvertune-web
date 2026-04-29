@@ -152,7 +152,14 @@ document.getElementById('sel-scale').addEventListener('change', e => { scaleIdx 
 document.getElementById('start').addEventListener('click', async () => {
   document.getElementById('start').remove();
 
-  const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+  const stream = await navigator.mediaDevices.getUserMedia({
+    audio: {
+      echoCancellation: false,
+      noiseSuppression: false,
+      autoGainControl: false,
+    },
+    video: false,
+  });
   const actx = new AudioContext({ latencyHint: 'interactive' });
   const sr = actx.sampleRate;
   const source = actx.createMediaStreamSource(stream);
