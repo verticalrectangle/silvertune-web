@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Silvertune</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #000; overflow: hidden; font-family: 'Helvetica Neue', sans-serif; }
+  canvas { display: block; }
+
+  #controls {
+    position: fixed;
+    bottom: 32px;
+    left: 32px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    opacity: 1;
+    transition: opacity 0.5s;
+    z-index: 10;
+  }
+  #controls.hidden { opacity: 0; pointer-events: none; }
+
+  .ctrl {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .ctrl label {
+    color: rgba(255,255,255,0.5);
+    font-size: 11px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    width: 52px;
+  }
+  .ctrl input[type=range] {
+    -webkit-appearance: none;
+    width: 140px;
+    height: 2px;
+    background: rgba(255,255,255,0.15);
+    outline: none;
+    border-radius: 2px;
+  }
+  .ctrl input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: #fff;
+    cursor: pointer;
+  }
+  .ctrl select {
+    background: transparent;
+    border: 1px solid rgba(255,255,255,0.15);
+    color: rgba(255,255,255,0.6);
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    padding: 2px 6px;
+    outline: none;
+    cursor: pointer;
+  }
+  .ctrl select option { background: #111; }
+
+  #hint {
+    position: fixed;
+    bottom: 32px;
+    right: 32px;
+    color: rgba(255,255,255,0.2);
+    font-size: 11px;
+    letter-spacing: 0.1em;
+  }
+
+  #label {
+    position: fixed;
+    top: 40px;
+    left: 50%;
+    transform: translateX(-50%);
+    text-align: center;
+    pointer-events: none;
+    transition: opacity 0.5s;
+  }
+  #label.hidden { opacity: 0; }
+  #label-key {
+    font-size: 64px;
+    font-weight: 200;
+    color: rgba(255,255,255,0.85);
+    letter-spacing: 0.05em;
+    line-height: 1;
+  }
+  #label-scale {
+    font-size: 13px;
+    letter-spacing: 0.3em;
+    color: rgba(255,255,255,0.3);
+    margin-top: 6px;
+  }
+
+  #start-overlay {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: #000;
+    z-index: 100;
+    cursor: pointer;
+    gap: 16px;
+  }
+  #start-overlay h1 {
+    font-size: 48px;
+    font-weight: 100;
+    letter-spacing: 0.3em;
+    color: #fff;
+  }
+  #start-overlay p {
+    font-size: 13px;
+    letter-spacing: 0.2em;
+    color: rgba(255,255,255,0.3);
+  }
+</style>
+</head>
+<body>
+
+<div id="start-overlay">
+  <h1>SILVERTUNE</h1>
+  <p>CLICK TO BEGIN</p>
+</div>
+
+<canvas id="c"></canvas>
+
+<div id="label">
+  <div id="label-key">C</div>
+  <div id="label-scale">CHROMATIC</div>
+</div>
+
+<div id="controls">
+  <div class="ctrl">
+    <label>Key</label>
+    <select id="sel-key">
+      <script>
+        const KEYS = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+        KEYS.forEach((k,i) => document.write(`<option value="${i}">${k}</option>`));
+      </script>
+    </select>
+  </div>
+  <div class="ctrl">
+    <label>Scale</label>
+    <select id="sel-scale">
+      <option value="0">Chromatic</option>
+      <option value="1" selected>Major</option>
+      <option value="2">Minor</option>
+    </select>
+  </div>
+  <div class="ctrl">
+    <label>Tune</label>
+    <input type="range" id="sl-tune" min="0" max="100" value="80">
+  </div>
+  <div class="ctrl">
+    <label>Wide</label>
+    <input type="range" id="sl-wide" min="0" max="100" value="50">
+  </div>
+</div>
+
+<div id="hint">H — hide controls &nbsp;·&nbsp; F — fullscreen</div>
+
+<canvas id="c"></canvas>
+
+<script>
+const KEYS = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+const SCALE_NAMES = ['CHROMATIC','MAJOR','MINOR'];
+
+// --- state ---
+let tune = 0.8, wide = 0.5, keyIdx = 0, scaleIdx = 1;
+let controlsHidden = false;
+
+// --- canvas setup ---
+const canvas = document.querySelector('#c');
+const ctx = canvas.getContext('2d');
+
+function resize() {
+  canvas.width  = window.innerWidth;
+  canvas.height = window.innerHeight;
+}
+resize();
+window.addEventListener('resize', resize);
+
+// --- audio ---
+let analyser, dataArray, bufferLength;
+let amplitude = 0, smoothAmplitude = 0;
+
+async function startAudio() {
+  const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+  const audioCtx = new AudioContext();
+  const source = audioCtx.createMediaStreamSource(stream);
+  analyser = audioCtx.createAnalyser();
+  analyser.fftSize = 2048;
+  analyser.smoothingTimeConstant = 0.8;
+  source.connect(analyser);
+  bufferLength = analyser.frequencyBinCount;
+  dataArray = new Uint8Array(bufferLength);
+}
+
+// --- bokeh particles ---
+const NUM_BOKEH = 55;
+const bokeh = Array.from({ length: NUM_BOKEH }, () => makeBokeh());
+
+function makeBokeh() {
+  return {
+    x: Math.random() * window.innerWidth,
+    y: Math.random() * window.innerHeight,
+    r: 20 + Math.random() * 120,
+    speed: 0.08 + Math.random() * 0.18,
+    drift: (Math.random() - 0.5) * 0.3,
+    phase: Math.random() * Math.PI * 2,
+    alpha: 0.03 + Math.random() * 0.07,
+  };
+}
+
+function updateBokeh() {
+  for (const b of bokeh) {
+    b.y -= b.speed * (1 + smoothAmplitude * 1.5);
+    b.x += b.drift;
+    b.phase += 0.005;
+    if (b.y + b.r < 0) {
+      b.x = Math.random() * canvas.width;
+      b.y = canvas.height + b.r;
+      b.r = 20 + Math.random() * 120;
+    }
+  }
+}
+
+function drawBokeh() {
+  for (const b of bokeh) {
+    const pulse = 1 + wide * 0.35 * Math.sin(b.phase);
+    const r = b.r * pulse;
+    const hue = (keyIdx / 12) * 360;
+    const sat = 30 + wide * 50;
+    const alpha = b.alpha * (0.5 + wide * 0.8) * (0.6 + smoothAmplitude * 1.2);
+    const grd = ctx.createRadialGradient(b.x, b.y, 0, b.x, b.y, r);
+    grd.addColorStop(0, `hsla(${hue},${sat}%,80%,${alpha})`);
+    grd.addColorStop(1, `hsla(${hue},${sat}%,60%,0)`);
+    ctx.beginPath();
+    ctx.arc(b.x, b.y, r, 0, Math.PI * 2);
+    ctx.fillStyle = grd;
+    ctx.fill();
+  }
+}
+
+// --- wave ---
+let wavePoints = [];
+const WAVE_SEGMENTS = 180;
+
+function drawWave() {
+  const W = canvas.width, H = canvas.height;
+  const cy = H / 2;
+
+  // build wave from audio data or idle sine
+  const pts = [];
+  const time = performance.now() / 1000;
+
+  for (let i = 0; i <= WAVE_SEGMENTS; i++) {
+    const t = i / WAVE_SEGMENTS;
+    const x = t * W;
+
+    let y = 0;
+    if (analyser && smoothAmplitude > 0.01) {
+      const idx = Math.floor(t * (bufferLength / 2));
+      const raw = (dataArray[idx] / 128.0) - 1.0;
+      y = raw * smoothAmplitude * H * 0.32;
+    }
+
+    // base undulation — always present
+    y += Math.sin(t * Math.PI * 3 + time * 0.7) * (8 + tune * 14);
+    y += Math.sin(t * Math.PI * 7 - time * 1.1) * (3 + tune * 6);
+
+    // tune sharpness: blend between smooth and raw
+    const sharpness = tune;
+    if (analyser) {
+      const idx2 = Math.floor(t * bufferLength * 0.4);
+      const raw2 = (dataArray[idx2] / 128.0) - 1.0;
+      y += raw2 * sharpness * smoothAmplitude * H * 0.18;
+    }
+
+    pts.push({ x, y: cy + y });
+  }
+
+  // glow passes
+  const hue = (keyIdx / 12) * 360;
+  const glowPasses = [
+    { blur: 32, alpha: 0.12 + tune * 0.18, width: 8 },
+    { blur: 12, alpha: 0.25 + tune * 0.3,  width: 3 },
+    { blur: 2,  alpha: 0.7  + tune * 0.3,  width: 1.5 },
+  ];
+
+  for (const pass of glowPasses) {
+    ctx.save();
+    ctx.shadowBlur = pass.blur;
+    ctx.shadowColor = `hsla(${hue},80%,75%,1)`;
+    ctx.strokeStyle = `hsla(${hue},70%,80%,${pass.alpha})`;
+    ctx.lineWidth = pass.width;
+    ctx.beginPath();
+    ctx.moveTo(pts[0].x, pts[0].y);
+    for (let i = 1; i < pts.length - 2; i++) {
+      const mx = (pts[i].x + pts[i+1].x) / 2;
+      const my = (pts[i].y + pts[i+1].y) / 2;
+      ctx.quadraticCurveTo(pts[i].x, pts[i].y, mx, my);
+    }
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  // wide shimmer: second wave offset
+  if (wide > 0.05) {
+    const shimmerAlpha = wide * 0.35;
+    ctx.save();
+    ctx.globalAlpha = shimmerAlpha;
+    ctx.shadowBlur = 20;
+    ctx.shadowColor = `hsla(${(hue + 30) % 360},80%,75%,1)`;
+    ctx.strokeStyle = `hsla(${(hue + 30) % 360},60%,80%,0.6)`;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    for (let i = 0; i <= WAVE_SEGMENTS; i++) {
+      const t = i / WAVE_SEGMENTS;
+      const x = pts[i].x;
+      const shimmer = Math.sin(t * Math.PI * 5 + time * 1.8) * wide * smoothAmplitude * H * 0.08;
+      const y = pts[i].y + shimmer + wide * 12 * Math.sin(t * Math.PI + time);
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+    ctx.restore();
+  }
+}
+
+// --- vignette ---
+function drawVignette() {
+  const W = canvas.width, H = canvas.height;
+  const grd = ctx.createRadialGradient(W/2, H/2, H*0.2, W/2, H/2, H*0.85);
+  grd.addColorStop(0, 'rgba(0,0,0,0)');
+  grd.addColorStop(1, 'rgba(0,0,0,0.75)');
+  ctx.fillStyle = grd;
+  ctx.fillRect(0, 0, W, H);
+}
+
+// --- main loop ---
+function frame() {
+  requestAnimationFrame(frame);
+
+  if (analyser) {
+    analyser.getByteTimeDomainData(dataArray);
+    let sum = 0;
+    for (let i = 0; i < bufferLength; i++) {
+      const v = (dataArray[i] / 128.0) - 1.0;
+      sum += v * v;
+    }
+    amplitude = Math.sqrt(sum / bufferLength);
+  }
+  smoothAmplitude += (amplitude - smoothAmplitude) * 0.12;
+
+  // background fade
+  ctx.fillStyle = 'rgba(0,0,0,0.18)';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  updateBokeh();
+  drawBokeh();
+  drawWave();
+  drawVignette();
+}
+
+// --- controls ---
+document.getElementById('sl-tune').addEventListener('input', e => {
+  tune = e.target.value / 100;
+});
+document.getElementById('sl-wide').addEventListener('input', e => {
+  wide = e.target.value / 100;
+});
+document.getElementById('sel-key').addEventListener('change', e => {
+  keyIdx = parseInt(e.target.value);
+  document.getElementById('label-key').textContent = KEYS[keyIdx];
+});
+document.getElementById('sel-scale').addEventListener('change', e => {
+  scaleIdx = parseInt(e.target.value);
+  document.getElementById('label-scale').textContent = SCALE_NAMES[scaleIdx];
+});
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'h' || e.key === 'H') {
+    controlsHidden = !controlsHidden;
+    document.getElementById('controls').classList.toggle('hidden', controlsHidden);
+    document.getElementById('hint').style.opacity = controlsHidden ? '0' : '1';
+    document.getElementById('label').classList.toggle('hidden', controlsHidden);
+  }
+  if (e.key === 'f' || e.key === 'F') {
+    if (!document.fullscreenElement) document.documentElement.requestFullscreen();
+    else document.exitFullscreen();
+  }
+});
+
+// --- start ---
+document.getElementById('start-overlay').addEventListener('click', async () => {
+  document.getElementById('start-overlay').remove();
+  await startAudio();
+  frame();
+});
+
+// remove duplicate canvas
+document.querySelectorAll('#c').forEach((el, i) => { if (i > 0) el.remove(); });
+</script>
+</body>
+</html>
