@@ -68,22 +68,93 @@
 
 <script>
 const KEYS = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+const SCALE_INTERVALS = [
+  [0,1,2,3,4,5,6,7,8,9,10,11],
+  [0,2,4,5,7,9,11],
+  [0,2,3,5,7,8,10],
+];
+
 let workletNode;
 let tune = 1.0, keyIdx = 0, scaleIdx = 1;
 
-function send() {
-  if (workletNode) workletNode.port.postMessage({ tune, keyIdx, scaleIdx });
+// YIN on main thread — same algorithm as yin.cpp
+const YIN_BUF = 1024, YIN_HOP = 512, YIN_HALF = 512;
+let yinBuf = new Float32Array(YIN_BUF);
+let yinPos = 0;
+const diff = new Float32Array(YIN_HALF);
+
+function hzToMidi(hz) { return 69 + 12 * Math.log2(hz / 440); }
+function midiToHz(m)  { return 440 * Math.pow(2, (m - 69) / 12); }
+
+function quantizeToScale(midiNote, root, si) {
+  const ivs = SCALE_INTERVALS[si];
+  let best = midiNote, bestDist = 999;
+  const base = Math.floor(midiNote / 12);
+  for (let oct = base - 1; oct <= base + 1; oct++)
+    for (const iv of ivs) { const c = oct*12+root+iv, d = Math.abs(c-midiNote); if (d < bestDist) { bestDist=d; best=c; } }
+  return best;
 }
 
-document.getElementById('sl-tune').addEventListener('input', e => { tune = e.target.value/100; send(); });
-document.getElementById('sel-key').addEventListener('change', e => { keyIdx = parseInt(e.target.value); send(); });
-document.getElementById('sel-scale').addEventListener('change', e => { scaleIdx = parseInt(e.target.value); send(); });
+function runYin(sr) {
+  for (let tau = 0; tau < YIN_HALF; tau++) {
+    let sum = 0;
+    for (let j = 0; j < YIN_HALF; j++) { const d = yinBuf[j]-yinBuf[j+tau]; sum += d*d; }
+    diff[tau] = sum;
+  }
+  diff[0] = 1.0;
+  let run = 0;
+  for (let tau = 1; tau < YIN_HALF; tau++) { run += diff[tau]; diff[tau] = diff[tau]*tau/run; }
+
+  let tau = 2;
+  for (; tau < YIN_HALF; tau++) {
+    if (diff[tau] < 0.15) { while (tau+1 < YIN_HALF && diff[tau+1] < diff[tau]) tau++; break; }
+  }
+  if (tau >= YIN_HALF) return null;
+
+  const s0=diff[tau-1], s1=diff[tau], s2=diff[Math.min(tau+1,YIN_HALF-1)];
+  const denom = 2*(2*s1-s2-s0);
+  const shift = Math.abs(denom) > 1e-12 ? (s0-s2)/denom : 0;
+  const hz = sr / (tau + shift);
+  const conf = Math.max(0, Math.min(1, 1-s1));
+  if (hz > 50 && hz < 2000 && conf > 0.5) return hz;
+  return null;
+}
+
+function onSamples(samples, sr) {
+  // push into YIN ring buffer
+  for (let i = 0; i < samples.length; i++) {
+    yinBuf[yinPos++] = samples[i];
+    if (yinPos >= YIN_BUF) {
+      const hz = runYin(sr);
+      if (hz !== null) {
+        const detMidi  = Math.round(hzToMidi(hz));
+        const corrMidi = quantizeToScale(detMidi, keyIdx, scaleIdx);
+        const target   = midiToHz(corrMidi);
+        let ratio = target / hz;
+        ratio = 1.0 + (ratio - 1.0) * tune;
+        ratio = Math.max(0.5, Math.min(2.0, ratio));
+        workletNode.port.postMessage({ ratio });
+
+        document.getElementById('note').textContent = KEYS[corrMidi % 12];
+        document.getElementById('arrow').textContent =
+          detMidi !== corrMidi ? KEYS[detMidi%12] + '  →  ' + KEYS[corrMidi%12] : '';
+      }
+      yinBuf.copyWithin(0, YIN_HOP);
+      yinPos = YIN_BUF - YIN_HOP;
+    }
+  }
+}
+
+document.getElementById('sl-tune').addEventListener('input', e => { tune = e.target.value/100; });
+document.getElementById('sel-key').addEventListener('change', e => { keyIdx = parseInt(e.target.value); });
+document.getElementById('sel-scale').addEventListener('change', e => { scaleIdx = parseInt(e.target.value); });
 
 document.getElementById('start').addEventListener('click', async () => {
   document.getElementById('start').remove();
 
   const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
   const actx = new AudioContext({ latencyHint: 'interactive' });
+  const sr = actx.sampleRate;
   const source = actx.createMediaStreamSource(stream);
 
   await actx.audioWorklet.addModule('worklet.js');
@@ -92,22 +163,11 @@ document.getElementById('start').addEventListener('click', async () => {
   });
 
   workletNode.port.onmessage = (e) => {
-    const { detectedNote, correctedNote } = e.data;
-    const noteEl  = document.getElementById('note');
-    const arrowEl = document.getElementById('arrow');
-    if (correctedNote >= 0) {
-      noteEl.textContent = KEYS[correctedNote % 12];
-      arrowEl.textContent = (detectedNote >= 0 && detectedNote !== correctedNote)
-        ? KEYS[detectedNote % 12] + '  →  ' + KEYS[correctedNote % 12] : '';
-    } else {
-      noteEl.textContent = '—';
-      arrowEl.textContent = '';
-    }
+    if (e.data.samples) onSamples(new Float32Array(e.data.samples), sr);
   };
 
   source.connect(workletNode);
   workletNode.connect(actx.destination);
-  send();
 });
 </script>
 </body>
