@@ -1,10 +1,10 @@
-// Audio thread: grain shift + YIN — YIN with smaller buffer stays fast enough
-
 const SCALE_INTERVALS = [
   [0,1,2,3,4,5,6,7,8,9,10,11],
   [0,2,4,5,7,9,11],
   [0,2,3,5,7,8,10],
 ];
+
+const DETUNE = 1.00463;
 
 function hzToMidi(hz) { return 69 + 12 * Math.log2(hz / 440); }
 function midiToHz(m)  { return 440 * Math.pow(2, (m - 69) / 12); }
@@ -32,11 +32,9 @@ class GrainShifter {
   process(input, pitchRatio) {
     this.buf[this.writePos & this.MASK] = input;
     this.writePos++;
-
     const inc = (1.0 - pitchRatio) / this.grainSize;
     this.phaseA += inc; this.phaseA -= Math.floor(this.phaseA);
     this.phaseB += inc; this.phaseB -= Math.floor(this.phaseB);
-
     const sA = this._read(this.phaseA * this.grainSize + 2.0);
     const sB = this._read(this.phaseB * this.grainSize + 2.0);
     return sA * this._hann(this.phaseA) + sB * this._hann(this.phaseB);
@@ -57,8 +55,8 @@ class SilvertuneProcessor extends AudioWorkletProcessor {
   constructor() {
     super();
     this.shifter = new GrainShifter();
+    this.doubler = new GrainShifter();
 
-    // YIN — smaller buffer: 512 samples, HALF=256 (65K ops, ~0.13ms)
     this.YIN_BUF  = 512;
     this.YIN_HALF = 256;
     this.YIN_HOP  = 128;
@@ -71,15 +69,19 @@ class SilvertuneProcessor extends AudioWorkletProcessor {
     this.correctedNote = -1;
 
     this.tune     = 1.0;
+    this.wide     = 0.0;
     this.keyIdx   = 0;
     this.scaleIdx = 1;
     this.bypass   = false;
 
     this.postCounter = 0;
+    this.rmsAcc      = 0;
+    this.rmsCount    = 0;
 
     this.port.onmessage = (e) => {
       const d = e.data;
       if (d.tune     !== undefined) this.tune     = d.tune;
+      if (d.wide     !== undefined) this.wide     = d.wide;
       if (d.keyIdx   !== undefined) this.keyIdx   = d.keyIdx;
       if (d.scaleIdx !== undefined) this.scaleIdx = d.scaleIdx;
       if (d.bypass   !== undefined) this.bypass   = d.bypass;
@@ -96,19 +98,16 @@ class SilvertuneProcessor extends AudioWorkletProcessor {
     diff[0] = 1.0;
     let run = 0;
     for (let tau = 1; tau < HALF; tau++) { run += diff[tau]; diff[tau] = diff[tau]*tau/run; }
-
     let tau = 2;
     for (; tau < HALF; tau++) {
       if (diff[tau] < 0.15) { while (tau+1 < HALF && diff[tau+1] < diff[tau]) tau++; break; }
     }
     if (tau >= HALF) return;
-
     const s0=diff[tau-1], s1=diff[tau], s2=diff[Math.min(tau+1,HALF-1)];
     const denom = 2*(2*s1-s2-s0);
     const shift = Math.abs(denom) > 1e-12 ? (s0-s2)/denom : 0;
     const hz = sampleRate / (tau + shift);
     const conf = Math.max(0, Math.min(1, 1-s1));
-
     if (hz > 80 && hz < 2000 && conf > 0.5) {
       const detMidi  = Math.round(hzToMidi(hz));
       const corrMidi = quantizeToScale(detMidi, this.keyIdx, this.scaleIdx);
@@ -131,13 +130,30 @@ class SilvertuneProcessor extends AudioWorkletProcessor {
         this.yinBuf.copyWithin(0, this.YIN_HOP);
         this.yinPos = this.YIN_BUF - this.YIN_HOP;
       }
-      output[i] = this.bypass ? input[i] : this.shifter.process(input[i], this.heldRatio);
+
+      const s = input[i];
+      this.rmsAcc += s * s;
+      this.rmsCount++;
+
+      if (this.bypass) {
+        output[i] = s;
+      } else {
+        const wet = this.shifter.process(s, this.heldRatio);
+        const dbl = this.doubler.process(s, this.heldRatio * DETUNE);
+        output[i] = wet + dbl * this.wide;
+      }
     }
 
     this.postCounter += input.length;
     if (this.postCounter >= 1200) {
       this.postCounter = 0;
-      this.port.postMessage({ detectedNote: this.detectedNote, correctedNote: this.correctedNote });
+      const rms = Math.sqrt(this.rmsAcc / Math.max(1, this.rmsCount));
+      this.rmsAcc = 0; this.rmsCount = 0;
+      this.port.postMessage({
+        detectedNote:  this.detectedNote,
+        correctedNote: this.correctedNote,
+        rms,
+      });
     }
 
     return true;
