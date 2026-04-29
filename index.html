@@ -30,6 +30,8 @@
   #start h1 { font-size: 52px; font-weight: 100; letter-spacing: 0.4em; color: #ff6ec7;
                text-shadow: 0 0 60px #ff6ec7; }
   #start p { font-size: 12px; letter-spacing: 0.2em; color: rgba(255,255,255,0.25); }
+  #bypass-label { font-size: 11px; letter-spacing: 0.2em; color: rgba(255,100,100,0.7);
+                  display: none; margin-top: 8px; }
 </style>
 </head>
 <body>
@@ -41,6 +43,7 @@
 
 <div id="note">—</div>
 <div id="arrow"></div>
+<div id="bypass-label">BYPASS</div>
 
 <div class="row">
   <label>Key</label>
@@ -76,6 +79,19 @@ function send() {
 }
 
 document.getElementById('sl-tune').addEventListener('input', e => { tune = e.target.value/100; send(); });
+
+document.addEventListener('keydown', e => {
+  if ((e.key === 'b' || e.key === 'B') && workletNode) {
+    workletNode.port.postMessage({ bypass: true });
+    document.getElementById('bypass-label').style.display = 'block';
+  }
+});
+document.addEventListener('keyup', e => {
+  if ((e.key === 'b' || e.key === 'B') && workletNode) {
+    workletNode.port.postMessage({ bypass: false });
+    document.getElementById('bypass-label').style.display = 'none';
+  }
+});
 document.getElementById('sel-key').addEventListener('change', e => { keyIdx = parseInt(e.target.value); send(); });
 document.getElementById('sel-scale').addEventListener('change', e => { scaleIdx = parseInt(e.target.value); send(); });
 
