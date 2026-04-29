@@ -187,64 +187,41 @@ function quantizeToScale(midiNote, root, scaleIdx) {
   return best;
 }
 
-// --- YIN pitch detector (same algorithm as yin.cpp) ---
-function yinDetect(buf, sr) {
-  const N = buf.length;
-  const HALF = Math.floor(N / 2);
-  const diff = new Float32Array(HALF);
-
-  for (let tau = 0; tau < HALF; tau++) {
-    let sum = 0;
-    for (let j = 0; j < HALF; j++) {
-      const d = buf[j] - buf[j + tau];
-      sum += d * d;
-    }
-    diff[tau] = sum;
-  }
-
-  diff[0] = 1.0;
-  let running = 0;
-  for (let tau = 1; tau < HALF; tau++) {
-    running += diff[tau];
-    diff[tau] = diff[tau] * tau / running;
-  }
-
-  let tauEst = 0;
-  for (let tau = 2; tau < HALF; tau++) {
-    if (diff[tau] < 0.15) {
-      while (tau + 1 < HALF && diff[tau + 1] < diff[tau]) tau++;
-      tauEst = tau;
-      break;
-    }
-  }
-  if (tauEst === 0) return { hz: 0, confidence: 0 };
-
-  const s0 = diff[tauEst - 1];
-  const s1 = diff[tauEst];
-  const s2 = diff[Math.min(tauEst + 1, HALF - 1)];
-  let shift = 0;
-  const denom = 2 * (2 * s1 - s2 - s0);
-  if (Math.abs(denom) > 1e-12) shift = (s0 - s2) / denom;
-
-  return { hz: sr / (tauEst + shift), confidence: Math.max(0, Math.min(1, 1 - s1)) };
-}
 
 // --- audio ---
-let analyser, sr, timeDomain, freqDomain, bufLen;
+let analyser, timeDomain, freqDomain, bufLen, workletNode;
 
 async function startAudio() {
   const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-  const actx = new AudioContext();
-  sr = actx.sampleRate;
+  const actx = new AudioContext({ latencyHint: 'interactive' });
   const source = actx.createMediaStreamSource(stream);
+
+  await actx.audioWorklet.addModule('worklet.js');
+  workletNode = new AudioWorkletNode(actx, 'silvertune-processor', {
+    numberOfInputs: 1, numberOfOutputs: 1,
+    outputChannelCount: [1],
+  });
+
+  workletNode.port.onmessage = (e) => {
+    const d = e.data;
+    detectedNote     = d.detectedNote;
+    correctedNote    = d.correctedNote;
+    correctionRatio  = d.correctionRatio;
+    smoothAmp        = d.amplitude;
+    smoothRatio      = d.correctionRatio;
+  };
+
+  // analyser for waveform visualization only — not for pitch
   analyser = actx.createAnalyser();
   analyser.fftSize = 2048;
   analyser.smoothingTimeConstant = 0.0;
-  source.connect(analyser);
-  source.connect(actx.destination);
   bufLen = analyser.fftSize;
   timeDomain = new Float32Array(bufLen);
   freqDomain = new Uint8Array(analyser.frequencyBinCount);
+
+  source.connect(analyser);
+  source.connect(workletNode);
+  workletNode.connect(actx.destination);
 }
 
 // --- bokeh ---
@@ -463,51 +440,8 @@ function updateNoteDisplay() {
   }
 }
 
-// --- pitch processing ---
-let yinBuf = null;
-let yinPos = 0;
-const YIN_BUF = 1024;
-const YIN_HOP = 512;
-
 function processPitch() {
-  if (!analyser) return;
-  analyser.getFloatTimeDomainData(timeDomain);
-
-  if (!yinBuf) yinBuf = new Float32Array(YIN_BUF);
-
-  // push samples
-  for (let i = 0; i < timeDomain.length && yinPos < YIN_BUF; i++) {
-    yinBuf[yinPos++] = timeDomain[i];
-  }
-  if (yinPos < YIN_BUF) return;
-
-  const { hz, confidence } = yinDetect(yinBuf, sr);
-
-  // hop: shift buffer
-  yinBuf.copyWithin(0, YIN_HOP);
-  yinPos = YIN_BUF - YIN_HOP;
-
-  if (hz > 50 && hz < 2000 && confidence > 0.5) {
-    detectedHz = hz;
-    const detMidi = hzToMidi(hz);
-    const detMidiRound = Math.round(detMidi);
-    const corrMidi = quantizeToScale(detMidiRound, keyIdx, scaleIdx);
-    const targetHz = midiToHz(corrMidi);
-
-    let ratio = targetHz / hz;
-    ratio = 1.0 + (ratio - 1.0) * tune;
-    ratio = Math.max(0.5, Math.min(2.0, ratio));
-
-    correctionRatio = ratio;
-    detectedNote = detMidiRound;
-    correctedNote = corrMidi;
-  }
-
-  // compute amplitude from time domain
-  let sum = 0;
-  for (let i = 0; i < timeDomain.length; i++) sum += timeDomain[i] * timeDomain[i];
-  smoothAmp = Math.sqrt(sum / timeDomain.length);
-  smoothRatio = correctionRatio;
+  if (analyser) analyser.getFloatTimeDomainData(timeDomain);
 }
 
 // --- main loop ---
@@ -527,17 +461,22 @@ function frame() {
 }
 
 // --- controls ---
-document.getElementById('sl-tune').addEventListener('input', e => tune = e.target.value / 100);
-document.getElementById('sl-wide').addEventListener('input', e => wide = e.target.value / 100);
+function sendParams() {
+  if (workletNode) workletNode.port.postMessage({ tune, wide, keyIdx, scaleIdx });
+}
+document.getElementById('sl-tune').addEventListener('input', e => { tune = e.target.value / 100; sendParams(); });
+document.getElementById('sl-wide').addEventListener('input', e => { wide = e.target.value / 100; sendParams(); });
 document.getElementById('sel-key').addEventListener('change', e => {
   keyIdx = parseInt(e.target.value);
   document.getElementById('scale-label').textContent =
     KEYS[keyIdx] + ' ' + SCALE_NAMES[scaleIdx];
+  sendParams();
 });
 document.getElementById('sel-scale').addEventListener('change', e => {
   scaleIdx = parseInt(e.target.value);
   document.getElementById('scale-label').textContent =
     scaleIdx === 0 ? 'CHROMATIC' : KEYS[keyIdx] + ' ' + SCALE_NAMES[scaleIdx];
+  sendParams();
 });
 
 document.addEventListener('keydown', e => {
