@@ -1,4 +1,22 @@
-// Audio thread: grain shift only. YIN runs on main thread (same split as yin.cpp / audio_callback).
+// Audio thread: grain shift + YIN — YIN with smaller buffer stays fast enough
+
+const SCALE_INTERVALS = [
+  [0,1,2,3,4,5,6,7,8,9,10,11],
+  [0,2,4,5,7,9,11],
+  [0,2,3,5,7,8,10],
+];
+
+function hzToMidi(hz) { return 69 + 12 * Math.log2(hz / 440); }
+function midiToHz(m)  { return 440 * Math.pow(2, (m - 69) / 12); }
+
+function quantizeToScale(midiNote, root, si) {
+  const ivs = SCALE_INTERVALS[si];
+  let best = midiNote, bestDist = 999;
+  const base = Math.floor(midiNote / 12);
+  for (let oct = base - 1; oct <= base + 1; oct++)
+    for (const iv of ivs) { const c = oct*12+root+iv, d = Math.abs(c-midiNote); if (d < bestDist) { bestDist=d; best=c; } }
+  return best;
+}
 
 class GrainShifter {
   constructor() {
@@ -38,16 +56,66 @@ class GrainShifter {
 class SilvertuneProcessor extends AudioWorkletProcessor {
   constructor() {
     super();
-    this.shifter   = new GrainShifter();
-    this.heldRatio = 1.0;
+    this.shifter = new GrainShifter();
 
-    // accumulate samples to send to main thread for YIN
-    this.hopBuf = new Float32Array(256);
-    this.hopPos = 0;
+    // YIN — smaller buffer: 512 samples, HALF=256 (65K ops, ~0.13ms)
+    this.YIN_BUF  = 512;
+    this.YIN_HALF = 256;
+    this.YIN_HOP  = 128;
+    this.yinBuf   = new Float32Array(512);
+    this.diff     = new Float32Array(256);
+    this.yinPos   = 0;
+
+    this.heldRatio     = 1.0;
+    this.detectedNote  = -1;
+    this.correctedNote = -1;
+
+    this.tune     = 1.0;
+    this.keyIdx   = 0;
+    this.scaleIdx = 1;
+
+    this.postCounter = 0;
 
     this.port.onmessage = (e) => {
-      if (e.data.ratio !== undefined) this.heldRatio = e.data.ratio;
+      const d = e.data;
+      if (d.tune     !== undefined) this.tune     = d.tune;
+      if (d.keyIdx   !== undefined) this.keyIdx   = d.keyIdx;
+      if (d.scaleIdx !== undefined) this.scaleIdx = d.scaleIdx;
     };
+  }
+
+  _yin() {
+    const buf = this.yinBuf, diff = this.diff, HALF = this.YIN_HALF;
+    for (let tau = 0; tau < HALF; tau++) {
+      let sum = 0;
+      for (let j = 0; j < HALF; j++) { const d = buf[j]-buf[j+tau]; sum += d*d; }
+      diff[tau] = sum;
+    }
+    diff[0] = 1.0;
+    let run = 0;
+    for (let tau = 1; tau < HALF; tau++) { run += diff[tau]; diff[tau] = diff[tau]*tau/run; }
+
+    let tau = 2;
+    for (; tau < HALF; tau++) {
+      if (diff[tau] < 0.15) { while (tau+1 < HALF && diff[tau+1] < diff[tau]) tau++; break; }
+    }
+    if (tau >= HALF) return;
+
+    const s0=diff[tau-1], s1=diff[tau], s2=diff[Math.min(tau+1,HALF-1)];
+    const denom = 2*(2*s1-s2-s0);
+    const shift = Math.abs(denom) > 1e-12 ? (s0-s2)/denom : 0;
+    const hz = sampleRate / (tau + shift);
+    const conf = Math.max(0, Math.min(1, 1-s1));
+
+    if (hz > 80 && hz < 2000 && conf > 0.5) {
+      const detMidi  = Math.round(hzToMidi(hz));
+      const corrMidi = quantizeToScale(detMidi, this.keyIdx, this.scaleIdx);
+      let ratio = midiToHz(corrMidi) / hz;
+      ratio = 1.0 + (ratio - 1.0) * this.tune;
+      this.heldRatio     = Math.max(0.5, Math.min(2.0, ratio));
+      this.detectedNote  = detMidi;
+      this.correctedNote = corrMidi;
+    }
   }
 
   process(inputs, outputs) {
@@ -55,16 +123,19 @@ class SilvertuneProcessor extends AudioWorkletProcessor {
     if (!input || !output) return true;
 
     for (let i = 0; i < input.length; i++) {
-      // grain shift — only work on audio thread
-      output[i] = this.shifter.process(input[i], this.heldRatio);
-
-      // accumulate for YIN on main thread
-      this.hopBuf[this.hopPos++] = input[i];
-      if (this.hopPos >= 256) {
-        const transfer = this.hopBuf.buffer.slice(0);
-        this.port.postMessage({ samples: transfer }, [transfer]);
-        this.hopPos = 0;
+      this.yinBuf[this.yinPos++] = input[i];
+      if (this.yinPos >= this.YIN_BUF) {
+        this._yin();
+        this.yinBuf.copyWithin(0, this.YIN_HOP);
+        this.yinPos = this.YIN_BUF - this.YIN_HOP;
       }
+      output[i] = this.shifter.process(input[i], this.heldRatio);
+    }
+
+    this.postCounter += input.length;
+    if (this.postCounter >= 1200) {
+      this.postCounter = 0;
+      this.port.postMessage({ detectedNote: this.detectedNote, correctedNote: this.correctedNote });
     }
 
     return true;
