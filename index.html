@@ -78,7 +78,7 @@ let workletNode;
 let tune = 1.0, keyIdx = 0, scaleIdx = 1;
 
 // YIN on main thread — same algorithm as yin.cpp
-const YIN_BUF = 1024, YIN_HOP = 512, YIN_HALF = 512;
+const YIN_BUF = 1024, YIN_HOP = 256, YIN_HALF = 512;
 let yinBuf = new Float32Array(YIN_BUF);
 let yinPos = 0;
 const diff = new Float32Array(YIN_HALF);
@@ -160,7 +160,7 @@ document.getElementById('start').addEventListener('click', async () => {
     },
     video: false,
   });
-  const actx = new AudioContext({ latencyHint: 'interactive' });
+  const actx = new AudioContext({ latencyHint: 'interactive', sampleRate: 48000 });
   const sr = actx.sampleRate;
   const source = actx.createMediaStreamSource(stream);
 

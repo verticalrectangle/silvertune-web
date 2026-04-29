@@ -8,7 +8,7 @@ class GrainShifter {
     this.writePos  = 0;
     this.phaseA    = 0.0;
     this.phaseB    = 0.5;
-    this.grainSize = 1024;
+    this.grainSize = 512;
   }
 
   process(input, pitchRatio) {
@@ -42,7 +42,7 @@ class SilvertuneProcessor extends AudioWorkletProcessor {
     this.heldRatio = 1.0;
 
     // accumulate samples to send to main thread for YIN
-    this.hopBuf = new Float32Array(512);
+    this.hopBuf = new Float32Array(256);
     this.hopPos = 0;
 
     this.port.onmessage = (e) => {
@@ -60,7 +60,7 @@ class SilvertuneProcessor extends AudioWorkletProcessor {
 
       // accumulate for YIN on main thread
       this.hopBuf[this.hopPos++] = input[i];
-      if (this.hopPos >= 512) {
+      if (this.hopPos >= 256) {
         const transfer = this.hopBuf.buffer.slice(0);
         this.port.postMessage({ samples: transfer }, [transfer]);
         this.hopPos = 0;
