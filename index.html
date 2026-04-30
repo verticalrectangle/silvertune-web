@@ -481,6 +481,48 @@ function resize() { W = canvas.width = innerWidth; H = canvas.height = innerHeig
 window.addEventListener('resize', resize);
 resize();
 
+// ─── Companion WebSocket ──────────────────────────────────────────────────────
+let companionWs = null, companionActive = false;
+const COMPANION_URL = 'ws://127.0.0.1:2747';
+
+function probeCompanion() {
+  return new Promise(resolve => {
+    const timer = setTimeout(() => { try { ws.close(); } catch(_){} resolve(false); }, 600);
+    let ws;
+    try { ws = new WebSocket(COMPANION_URL); } catch(_) { clearTimeout(timer); resolve(false); return; }
+    ws.onopen = () => { clearTimeout(timer); companionWs = ws; attachCompanionHandlers(ws); resolve(true); };
+    ws.onerror = () => { clearTimeout(timer); resolve(false); };
+  });
+}
+
+function attachCompanionHandlers(ws) {
+  ws.onmessage = e => {
+    let msg; try { msg = JSON.parse(e.data); } catch { return; }
+    if (msg.type === 'pitch') onWorkletMsg({ data: { detectedNote: msg.detectedNote, correctedNote: msg.correctedNote, rms: msg.rms } });
+  };
+  ws.onclose = () => {
+    companionActive = false; companionWs = null; updateCompanionBadge(false);
+    setTimeout(async () => {
+      if (!companionActive) { const ok = await probeCompanion(); if (ok) { companionActive = true; updateCompanionBadge(true); sendCompanionParams(); } }
+    }, 5000);
+  };
+}
+
+function sendCompanionParams() {
+  if (companionWs?.readyState === WebSocket.OPEN)
+    companionWs.send(JSON.stringify({ type:'params', key:keyIdx, scale:scaleIdx, tune, wide }));
+}
+
+function updateCompanionBadge(active) {
+  let b = document.getElementById('companion-badge');
+  if (!b) {
+    b = document.createElement('div'); b.id = 'companion-badge';
+    b.style.cssText = 'position:fixed;bottom:22px;left:22px;z-index:10;font-size:9px;letter-spacing:0.2em;text-transform:uppercase;color:rgba(200,218,255,0.55);pointer-events:none;text-shadow:0 1px 2px rgba(0,0,0,0.8)';
+    document.body.appendChild(b);
+  }
+  b.textContent = active ? '⬡ companion' : '';
+}
+
 // ─── Audio state ──────────────────────────────────────────────────────────────
 let workletNode, actx, audioDest;
 let tune=1.0, wide=0.0, keyIdx=0, scaleIdx=1;
@@ -1098,9 +1140,10 @@ function onWorkletMsg(e) {
 // ─── Param controls ───────────────────────────────────────────────────────────
 function sendParams() {
   if (workletNode) workletNode.port.postMessage({ tune, keyIdx, scaleIdx });
+  sendCompanionParams();
 }
 document.getElementById('sl-tune').addEventListener('input', e=>{ tune=e.target.value/100; sendParams(); });
-document.getElementById('sl-wide').addEventListener('input', e=>{ wide=e.target.value/100; if(workletNode) workletNode.port.postMessage({wide}); });
+document.getElementById('sl-wide').addEventListener('input', e=>{ wide=e.target.value/100; if(workletNode) workletNode.port.postMessage({wide}); sendCompanionParams(); });
 document.getElementById('sel-key').addEventListener('change', e=>{ keyIdx=parseInt(e.target.value); sendParams(); });
 document.getElementById('sel-scale').addEventListener('change', e=>{ scaleIdx=parseInt(e.target.value); sendParams(); });
 document.addEventListener('keydown', e=>{ if((e.key==='b'||e.key==='B')&&workletNode) workletNode.port.postMessage({bypass:true}); });
@@ -1171,6 +1214,20 @@ document.getElementById('rec-cancel-btn').addEventListener('click', ()=>{
 // ─── Start ────────────────────────────────────────────────────────────────────
 document.getElementById('start').addEventListener('click', async () => {
   document.getElementById('start').remove();
+
+  // Try native companion first — if running, it handles all audio at OS latency
+  const hasCompanion = await probeCompanion();
+  if (hasCompanion) {
+    companionActive = true;
+    updateCompanionBadge(true);
+    sendCompanionParams();
+    initOrbs(); initHexes(); initStarPtcls();
+    isRunning = true;
+    populateDevices();
+    return;
+  }
+
+  // Fallback: WebAudio path
   const stream = await navigator.mediaDevices.getUserMedia({
     audio: {
       echoCancellation: false,
