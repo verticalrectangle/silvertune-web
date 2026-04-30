@@ -7,6 +7,10 @@ on:
         description: 'Release tag (e.g. companion-v0.1.0)'
         required: true
         default: 'companion-v0.1.0'
+      target:
+        description: 'Platform to build (linux / macos / windows / all)'
+        required: false
+        default: 'all'
 
 permissions:
   contents: write
@@ -28,6 +32,11 @@ jobs:
             binary: companion/target/release/silvertune-companion
 
     runs-on: ${{ matrix.os }}
+    if: |
+      github.event.inputs.target == 'all' ||
+      (github.event.inputs.target == 'linux'   && matrix.os == 'ubuntu-22.04') ||
+      (github.event.inputs.target == 'macos'   && matrix.os == 'macos-latest') ||
+      (github.event.inputs.target == 'windows' && matrix.os == 'windows-latest')
 
     steps:
       - uses: actions/checkout@v4
