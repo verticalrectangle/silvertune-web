@@ -26,7 +26,7 @@ jobs:
             binary: companion/target/release/silvertune-companion
           - os: windows-latest
             artifact: silvertune-companion-windows.exe
-            binary: companion/target/release/silvertune-companion.exe
+            binary: target/release/silvertune-companion.exe
           - os: macos-latest
             artifact: silvertune-companion-macos
             binary: companion/target/release/silvertune-companion
