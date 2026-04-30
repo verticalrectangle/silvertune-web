@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Silvertune — Projector</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #080a0e; overflow: hidden; }
+canvas { position: fixed; inset: 0; width: 100%; height: 100%; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<script>
+const canvas = document.getElementById('c');
+const ctx    = canvas.getContext('2d');
+let W, H, cx, cy;
+
+function resize() {
+  W = canvas.width  = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+  cx = W / 2; cy = H / 2;
+}
+window.addEventListener('resize', resize);
+resize();
+
+// ─── Blobs ────────────────────────────────────────────────────────────────────
+let bgT = 0;
+const BG_BLOBS = [
+  { xf:0.22, yf:0.17, xa:0.46, ya:0.40, ph:0.0,  h:210, s:55, l:85, r:0.90 },
+  { xf:0.14, yf:0.29, xa:0.40, ya:0.46, ph:2.1,  h:225, s:40, l:92, r:0.80 },
+  { xf:0.31, yf:0.21, xa:0.36, ya:0.34, ph:4.2,  h:195, s:65, l:78, r:0.75 },
+  { xf:0.19, yf:0.36, xa:0.42, ya:0.32, ph:1.5,  h:215, s:30, l:96, r:0.78 },
+  { xf:0.27, yf:0.13, xa:0.32, ya:0.44, ph:3.5,  h:200, s:70, l:72, r:0.68 },
+  { xf:0.11, yf:0.25, xa:0.47, ya:0.37, ph:5.1,  h:230, s:45, l:88, r:0.82 },
+  { xf:0.35, yf:0.18, xa:0.28, ya:0.48, ph:0.8,  h:185, s:60, l:80, r:0.62 },
+  { xf:0.09, yf:0.33, xa:0.44, ya:0.28, ph:3.0,  h:240, s:35, l:90, r:0.70 },
+  { xf:0.24, yf:0.41, xa:0.50, ya:0.42, ph:1.9,  h:205, s:55, l:75, r:0.85 },
+];
+
+function drawBg(amp) {
+  bgT += 0.010;
+  for (const b of BG_BLOBS) {
+    const bx = cx + Math.sin(bgT * b.xf + b.ph)       * W * b.xa;
+    const by = cy + Math.cos(bgT * b.yf + b.ph + 1.3) * H * b.ya;
+    const br = Math.min(W, H) * b.r * (1 + amp * 1.1);
+    const op = 0.38 + amp * 0.28;
+    const g  = ctx.createRadialGradient(bx, by, 0, bx, by, br);
+    g.addColorStop(0,    `hsla(${b.h}, ${b.s}%,   ${b.l}%,   ${op})`);
+    g.addColorStop(0.35, `hsla(${b.h + 15}, ${b.s * 0.8}%, ${b.l * 0.92}%, ${op * 0.65})`);
+    g.addColorStop(0.7,  `hsla(${b.h - 10}, ${b.s * 0.5}%, ${b.l * 0.78}%, ${op * 0.28})`);
+    g.addColorStop(1,    `hsla(${b.h}, ${b.s * 0.2}%, ${b.l * 0.6}%, 0)`);
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, H);
+  }
+  // Iridescent shimmer
+  const sx = W * 0.5 + Math.sin(bgT * 0.07) * W * 0.6;
+  const sy = H * 0.5 + Math.cos(bgT * 0.05) * H * 0.5;
+  const sg = ctx.createRadialGradient(sx, sy, 0, sx, sy, Math.max(W, H) * 1.1);
+  sg.addColorStop(0,   `hsla(${200 + Math.sin(bgT * 0.13) * 40}, 80%, 95%, ${0.12 + amp * 0.10})`);
+  sg.addColorStop(0.4, `hsla(${220 + Math.cos(bgT * 0.09) * 30}, 60%, 80%, ${0.06 + amp * 0.05})`);
+  sg.addColorStop(1,   'hsla(210, 40%, 70%, 0)');
+  ctx.fillStyle = sg;
+  ctx.fillRect(0, 0, W, H);
+}
+
+// ─── Orbs ─────────────────────────────────────────────────────────────────────
+const orbs = [];
+function rnd(a, b) { return a + Math.random() * (b - a); }
+
+function makeOrb(x, y) {
+  return {
+    x: x ?? rnd(0, W), y: y ?? rnd(0, H),
+    r: rnd(12, 88),
+    vx: rnd(-0.25, 0.25), vy: rnd(-0.35, -0.05),
+    hue: rnd(200, 230),
+    a: rnd(0.04, 0.12),
+    pulse: rnd(0, Math.PI * 2), pulseV: rnd(0.005, 0.013),
+    life: 1.0, decay: rnd(0.00015, 0.0004), flash: 0,
+  };
+}
+
+function initOrbs() { for (let i = 0; i < 55; i++) orbs.push(makeOrb()); }
+
+function tickOrbs(amp) {
+  for (let i = orbs.length - 1; i >= 0; i--) {
+    const o = orbs[i];
+    o.x += o.vx + Math.sin(o.pulse) * 0.18;
+    o.y += o.vy - amp * 0.4;
+    o.pulse += o.pulseV;
+    o.flash  = Math.max(0, o.flash - 0.055);
+    o.life  -= o.decay;
+    if (o.life <= 0 || o.y < -130) { orbs.splice(i, 1); orbs.push(makeOrb()); }
+  }
+}
+
+function drawOrbs(amp) {
+  for (const o of orbs) {
+    const sc = 1 + amp * 1.8 + o.flash;
+    const r  = o.r * sc;
+    const a  = o.a * o.life * (1 + o.flash * 2);
+    const g  = ctx.createRadialGradient(o.x, o.y, 0, o.x, o.y, r);
+    g.addColorStop(0,   `hsla(${o.hue}, 55%, 88%, ${a})`);
+    g.addColorStop(0.5, `hsla(${o.hue + 10}, 40%, 75%, ${a * 0.4})`);
+    g.addColorStop(1,   `hsla(${o.hue}, 20%, 60%, 0)`);
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.arc(o.x, o.y, r, 0, Math.PI * 2); ctx.fill();
+  }
+}
+
+// ─── Sonar rings ──────────────────────────────────────────────────────────────
+const rings = [];
+let autoRingT = 0;
+
+function tickRings() {
+  autoRingT++;
+  if (autoRingT % 90 === 0) {
+    rings.push({ x: cx, y: cy, r: 0, speed: rnd(3, 6), h: rnd(200, 230), a: 0.6, lw: 1.5 });
+  }
+  for (let i = rings.length - 1; i >= 0; i--) {
+    const rg = rings[i];
+    rg.r += rg.speed; rg.a -= 0.006;
+    if (rg.a <= 0) rings.splice(i, 1);
+  }
+}
+
+function drawRings() {
+  for (const rg of rings) {
+    ctx.beginPath();
+    ctx.arc(rg.x, rg.y, rg.r, 0, Math.PI * 2);
+    ctx.strokeStyle = `hsla(${rg.h}, 50%, 88%, ${rg.a})`;
+    ctx.lineWidth = rg.lw; ctx.stroke();
+  }
+}
+
+// ─── Click interaction ─────────────────────────────────────────────────────────
+canvas.addEventListener('click', e => {
+  const x = e.clientX, y = e.clientY;
+  rings.push({ x, y, r: 0, speed: 5.5, h: rnd(200, 230), a: 0.88, lw: 2 });
+  const o = makeOrb(x, y); o.r = rnd(50, 100); o.a = 0.22; o.decay = 0.007; o.flash = 1;
+  orbs.push(o);
+});
+
+// ─── Render ───────────────────────────────────────────────────────────────────
+let smoothAmp = 0;
+
+function render() {
+  requestAnimationFrame(render);
+
+  // Passive gentle pulse so it's alive even without audio
+  const t = performance.now() / 1000;
+  const passiveAmp = 0.08 + Math.sin(t * 0.4) * 0.05 + Math.sin(t * 0.17) * 0.03;
+  smoothAmp += (passiveAmp - smoothAmp) * 0.04;
+
+  drawBg(smoothAmp);
+
+  ctx.fillStyle = 'rgba(8, 10, 14, 0.038)';
+  ctx.fillRect(0, 0, W, H);
+
+  tickOrbs(smoothAmp); drawOrbs(smoothAmp);
+  tickRings();         drawRings();
+}
+
+initOrbs();
+render();
+</script>
+</body>
+</html>

@@ -855,27 +855,40 @@ function rnd(a, b) { return a + Math.random() * (b - a); }
 // ─── Background blobs ────────────────────────────────────────────────────────
 let bgT = 0;
 const BG_BLOBS = [
-  { xf:0.22, yf:0.17, xa:0.44, ya:0.38, ph:0.0, h:210, s:28, l:82, r:0.80 },
-  { xf:0.14, yf:0.29, xa:0.38, ya:0.44, ph:2.1, h:220, s:18, l:92, r:0.70 },
-  { xf:0.31, yf:0.21, xa:0.34, ya:0.32, ph:4.2, h:200, s:35, l:75, r:0.60 },
-  { xf:0.19, yf:0.36, xa:0.40, ya:0.30, ph:1.5, h:215, s:12, l:95, r:0.65 },
-  { xf:0.27, yf:0.13, xa:0.30, ya:0.42, ph:3.5, h:205, s:40, l:70, r:0.55 },
-  { xf:0.11, yf:0.25, xa:0.45, ya:0.35, ph:5.1, h:225, s:22, l:88, r:0.72 },
+  { xf:0.22, yf:0.17, xa:0.46, ya:0.40, ph:0.0,  h:210, s:55, l:85, r:0.90 },
+  { xf:0.14, yf:0.29, xa:0.40, ya:0.46, ph:2.1,  h:225, s:40, l:92, r:0.80 },
+  { xf:0.31, yf:0.21, xa:0.36, ya:0.34, ph:4.2,  h:195, s:65, l:78, r:0.75 },
+  { xf:0.19, yf:0.36, xa:0.42, ya:0.32, ph:1.5,  h:215, s:30, l:96, r:0.78 },
+  { xf:0.27, yf:0.13, xa:0.32, ya:0.44, ph:3.5,  h:200, s:70, l:72, r:0.68 },
+  { xf:0.11, yf:0.25, xa:0.47, ya:0.37, ph:5.1,  h:230, s:45, l:88, r:0.82 },
+  { xf:0.35, yf:0.18, xa:0.28, ya:0.48, ph:0.8,  h:185, s:60, l:80, r:0.62 },
+  { xf:0.09, yf:0.33, xa:0.44, ya:0.28, ph:3.0,  h:240, s:35, l:90, r:0.70 },
+  { xf:0.24, yf:0.41, xa:0.50, ya:0.42, ph:1.9,  h:205, s:55, l:75, r:0.85 },
 ];
 function drawBg() {
-  bgT += 0.006;
+  bgT += 0.010;
   for (const b of BG_BLOBS) {
-    const bx = cx + Math.sin(bgT * b.xf + b.ph)          * W * b.xa;
-    const by = cy + Math.cos(bgT * b.yf + b.ph + 1.3)    * H * b.ya;
-    const br = Math.min(W, H) * b.r * (1 + smoothAmp * 0.7);
-    const op = 0.20 + smoothAmp * 0.18;
+    const bx = cx + Math.sin(bgT * b.xf + b.ph)       * W * b.xa;
+    const by = cy + Math.cos(bgT * b.yf + b.ph + 1.3) * H * b.ya;
+    const br = Math.min(W, H) * b.r * (1 + smoothAmp * 1.1);
+    const op = 0.38 + smoothAmp * 0.28;
     const g  = ctx.createRadialGradient(bx, by, 0, bx, by, br);
-    g.addColorStop(0,   `hsla(${b.h}, ${b.s}%,   ${b.l}%,   ${op})`);
-    g.addColorStop(0.45,`hsla(${b.h}, ${b.s*.7}%, ${b.l*.88}%, ${op * 0.55})`);
-    g.addColorStop(1,   `hsla(${b.h}, ${b.s*.3}%, ${b.l*.7}%,  0)`);
+    g.addColorStop(0,    `hsla(${b.h}, ${b.s}%,   ${b.l}%,   ${op})`);
+    g.addColorStop(0.35, `hsla(${b.h + 15}, ${b.s * 0.8}%, ${b.l * 0.92}%, ${op * 0.65})`);
+    g.addColorStop(0.7,  `hsla(${b.h - 10}, ${b.s * 0.5}%, ${b.l * 0.78}%, ${op * 0.28})`);
+    g.addColorStop(1,    `hsla(${b.h}, ${b.s * 0.2}%, ${b.l * 0.6}%, 0)`);
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, W, H);
   }
+  // Iridescent shimmer — a slow large diagonal gradient that drifts
+  const sx = W * 0.5 + Math.sin(bgT * 0.07) * W * 0.6;
+  const sy = H * 0.5 + Math.cos(bgT * 0.05) * H * 0.5;
+  const sg = ctx.createRadialGradient(sx, sy, 0, sx, sy, Math.max(W, H) * 1.1);
+  sg.addColorStop(0,   `hsla(${200 + Math.sin(bgT * 0.13) * 40}, 80%, 95%, ${0.12 + smoothAmp * 0.10})`);
+  sg.addColorStop(0.4, `hsla(${220 + Math.cos(bgT * 0.09) * 30}, 60%, 80%, ${0.06 + smoothAmp * 0.05})`);
+  sg.addColorStop(1,   'hsla(210, 40%, 70%, 0)');
+  ctx.fillStyle = sg;
+  ctx.fillRect(0, 0, W, H);
 }
 
 // ─── Orbs ─────────────────────────────────────────────────────────────────────
@@ -1116,7 +1129,7 @@ function render() {
   drawBg();
 
   // Trail fade toward dark
-  ctx.fillStyle = 'rgba(8, 10, 14, 0.055)';
+  ctx.fillStyle = 'rgba(8, 10, 14, 0.038)';
   ctx.fillRect(0, 0, W, H);
 
   if (FX.prism)   drawPrism();
