@@ -6,10 +6,17 @@
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
+@font-face {
+  font-family: 'Inter';
+  src: url('fonts/InterVariable.woff2') format('woff2');
+  font-weight: 100 900;
+  font-style: normal;
+}
+
 body {
   background: #080a0e;
   overflow: hidden;
-  font-family: 'Helvetica Neue', Arial, sans-serif;
+  font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif;
   user-select: none;
 }
 
@@ -292,16 +299,18 @@ body.minimal canvas { display: none; }
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   gap: 22px; cursor: pointer; z-index: 30;
 }
+#start-logo {
+  width: 72px; height: 72px; opacity: 0.92;
+}
 #start h1 {
-  font-size: 64px; font-weight: 100; letter-spacing: 0.5em; color: #dde6f5;
-  text-shadow: 0 0 80px #dde6f5, 0 0 200px rgba(210,224,245,0.15);
-  animation: shimmer 3.5s ease-in-out infinite;
+  font-size: clamp(36px, 7vw, 80px); font-weight: 900;
+  letter-spacing: -0.01em; color: #fff;
+  text-transform: uppercase; line-height: 1;
 }
-@keyframes shimmer {
-  0%,100% { text-shadow: 0 0 80px #dde6f5, 0 0 200px rgba(210,224,245,0.15); }
-  50%      { text-shadow: 0 0 110px #dde6f5, 0 0 260px rgba(210,224,245,0.3), 0 0 40px rgba(255,255,255,0.12); }
+#start .sub {
+  font-size: 13px; font-weight: 500; letter-spacing: 0.18em;
+  text-transform: uppercase; color: rgba(255,255,255,0.45);
 }
-#start .sub { font-size: 11px; letter-spacing: 0.28em; color: rgba(255,255,255,0.18); }
 #companion-cta {
   display: flex; flex-direction: column; align-items: center; gap: 10px;
   margin-top: 32px; pointer-events: auto;
@@ -310,16 +319,14 @@ body.minimal canvas { display: none; }
 .cta-sub   { font-size: 8px; letter-spacing: 0.2em;  text-transform: uppercase; color: rgba(255,255,255,0.14); }
 .cta-links { display: flex; gap: 10px; }
 .cta-btn {
-  font-size: 9px; letter-spacing: 0.2em; text-transform: uppercase;
-  text-decoration: none; padding: 6px 14px; border-radius: 6px;
-  background: linear-gradient(180deg, #c8cdd8 0%, #888fa0 100%);
-  border-top: 1px solid #dde2ea; border-bottom: 1px solid #363a42;
-  border-left: 1px solid #ccd0d8; border-right: 1px solid #484c56;
-  color: #1a1e28; font-family: inherit; font-weight: 600;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.4);
-  transition: background 0.15s;
+  font-size: 12px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase;
+  text-decoration: none; padding: 10px 22px;
+  border: 1px solid rgba(255,255,255,0.3);
+  color: rgba(255,255,255,0.75); font-family: inherit;
+  background: none;
+  transition: border-color 0.15s, color 0.15s;
 }
-.cta-btn:hover { background: linear-gradient(180deg, #dce2ec 0%, #9aa4b4 100%); }
+.cta-btn:hover { border-color: rgba(255,255,255,0.65); color: #fff; }
 
 /* ── Record modal ── */
 #rec-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.65); z-index: 40; align-items: center; justify-content: center; }
@@ -389,6 +396,11 @@ body.minimal canvas { display: none; }
 </div>
 
 <div id="start">
+  <svg id="start-logo" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <ellipse cx="13" cy="27" rx="5.5" ry="3.5" fill="white" transform="rotate(-15 13 27)"/>
+    <rect x="17.5" y="8" width="2.5" height="20" fill="white"/>
+    <path d="M20 8 C28 10 28 17 23 20" stroke="white" stroke-width="2.5" stroke-linecap="round"/>
+  </svg>
   <h1>SILVERTUNE</h1>
   <p class="sub">CLICK TO BEGIN &nbsp;·&nbsp; USE HEADPHONES</p>
   <div id="companion-cta">
