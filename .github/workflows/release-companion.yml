@@ -83,11 +83,15 @@ jobs:
         run: |
           cp companion/target/universal-apple-darwin/release/silvertune-companion companion/target/release/silvertune-companion || true
 
+      - name: Rename binary
+        shell: bash
+        run: cp ${{ matrix.binary }} ${{ matrix.artifact }}
+
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact }}
-          path: ${{ matrix.binary }}
+          path: ${{ matrix.artifact }}
 
   release:
     needs: build
@@ -127,7 +131,7 @@ jobs:
 
             The companion runs as a system tray app. Open silvertune.live in your browser and the "⬡ companion" badge will appear when connected.
           files: |
-            artifacts/silvertune-companion-linux/silvertune-companion
-            artifacts/silvertune-companion-macos/silvertune-companion
-            artifacts/silvertune-companion-windows.exe/silvertune-companion.exe
+            artifacts/silvertune-companion-linux/silvertune-companion-linux
+            artifacts/silvertune-companion-macos/silvertune-companion-macos
+            artifacts/silvertune-companion-windows.exe/silvertune-companion-windows.exe
           fail_on_unmatched_files: false
