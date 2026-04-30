@@ -145,7 +145,7 @@ class SilvertuneProcessor extends AudioWorkletProcessor {
       this.fastBuf[this.fastPos++] = s;
       if (this.fastPos >= this.FAST_BUF) {
         const r = runYin(this.fastBuf, this.fastDiff, this.FAST_HALF, sampleRate);
-        if (r) this._applyDetection(r.hz, r.conf, 375, 0.65);
+        if (r) this._applyDetection(r.hz, r.conf, 375, 0.5);
         this.fastBuf.copyWithin(0, this.FAST_HOP);
         this.fastPos = this.FAST_BUF - this.FAST_HOP;
       }
@@ -158,11 +158,11 @@ class SilvertuneProcessor extends AudioWorkletProcessor {
       } else {
         // Snap toward target — fast glide on large interval jumps, instant on small
         const delta = this.targetRatio - this.heldRatio;
-        this.heldRatio += delta * (Math.abs(delta) > 0.03 ? 0.1 : 1.0);
+        this.heldRatio += delta * (Math.abs(delta) > 0.03 ? 0.25 : 1.0);
 
         const wet = this.shifter.process(s, this.heldRatio);
         const dbl = this.doubler.process(s, this.heldRatio * DETUNE);
-        output[i] = wet * 0.95 + dbl * this.wide + s * 0.05;
+        output[i] = wet * 0.8 + dbl * this.wide + s * 0.2;
       }
     }
 
