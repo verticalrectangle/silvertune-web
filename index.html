@@ -50,29 +50,54 @@ canvas { position: fixed; inset: 0; width: 100%; height: 100%; cursor: crosshair
   will-change: transform, opacity;
 }
 .xitem-icon {
-  width: 60px; height: 60px;
+  width: 60px; height: 60px; border-radius: 14px;
   display: flex; align-items: center; justify-content: center;
-  font-size: 22px; color: #6a7080;
-  background: linear-gradient(180deg, #d0d5de 0%, #9aa0ae 40%, #7a8090 100%);
-  border-top: 1px solid #e8ecf2;
-  border-left: 1px solid #d8dde6;
-  border-right: 1px solid #505560;
-  border-bottom: 1px solid #3a3e48;
-  box-shadow: 0 3px 8px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.45);
+  font-size: 22px; color: #4a5060;
+  background: linear-gradient(180deg,
+    #e4e8f0 0%, #d0d6e2 18%,
+    #a8b0c0 19%, #8890a2 50%,
+    #727a8a 75%, #606878 100%);
+  border: 1px solid #2e323c;
+  box-shadow:
+    0 1px 0 rgba(255,255,255,0.55) inset,
+    0 -1px 0 rgba(0,0,0,0.3) inset,
+    0 4px 10px rgba(0,0,0,0.6),
+    0 1px 2px rgba(0,0,0,0.4);
   transition: background 0.15s, color 0.15s, box-shadow 0.15s;
+  position: relative; overflow: hidden;
+}
+.xitem-icon::after {
+  content: ''; position: absolute;
+  top: 0; left: 0; right: 0; height: 50%;
+  border-radius: 14px 14px 0 0;
+  background: linear-gradient(180deg, rgba(255,255,255,0.30) 0%, rgba(255,255,255,0.06) 100%);
+  pointer-events: none;
 }
 .xitem.on .xitem-icon {
-  background: linear-gradient(180deg, #e8edf5 0%, #bcc4d2 35%, #9aa4b4 100%);
-  border-top-color: #ffffff;
+  background: linear-gradient(180deg,
+    #f0f4fc 0%, #dce4f0 18%,
+    #c0c8d8 19%, #a0aaba 50%,
+    #8890a0 75%, #707a8c 100%);
   color: #1a1e28;
-  box-shadow: 0 3px 12px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.7), 0 0 14px rgba(200,215,240,0.3);
+  box-shadow:
+    0 1px 0 rgba(255,255,255,0.75) inset,
+    0 -1px 0 rgba(0,0,0,0.25) inset,
+    0 4px 14px rgba(0,0,0,0.65),
+    0 0 12px rgba(200,218,250,0.25);
 }
 .xitem:hover .xitem-icon {
-  background: linear-gradient(180deg, #dce2ec 0%, #adb6c6 40%, #8a94a4 100%);
+  background: linear-gradient(180deg,
+    #dce2ec 0%, #cad0dc 18%,
+    #a0a8ba 19%, #848ea0 50%,
+    #6e7888 75%, #5c6574 100%);
   color: #2a2e3a;
 }
-.xitem-label { font-size: 11px; letter-spacing: 0.14em; color: rgba(180,190,210,0.65); text-transform: uppercase; }
-.xitem.on .xitem-label { color: #c8d4e8; }
+.xitem-label {
+  font-size: 10px; letter-spacing: 0.12em; color: rgba(200,210,228,0.6);
+  text-transform: uppercase; font-weight: 500;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.8);
+}
+.xitem.on .xitem-label { color: #d0dcf0; text-shadow: 0 0 8px rgba(200,218,255,0.4), 0 1px 2px rgba(0,0,0,0.8); }
 
 /* SOUND controls */
 .sound-row {
@@ -91,17 +116,23 @@ select {
 }
 select option { background: #1a1e28; color: #c8d4e8; }
 input[type=range] {
-  -webkit-appearance: none; width: 110px; height: 4px;
-  background: linear-gradient(180deg, #3a3e4a 0%, #545a68 50%, #3a3e4a 100%);
-  border-top: 1px solid #282c36; border-bottom: 1px solid #606672;
-  outline: none; box-shadow: inset 0 1px 3px rgba(0,0,0,0.6);
+  -webkit-appearance: none; width: 110px; height: 6px; border-radius: 3px;
+  background: linear-gradient(180deg, #1e2230 0%, #2e3444 40%, #242836 100%);
+  border: 1px solid #181c28;
+  outline: none;
+  box-shadow: inset 0 2px 4px rgba(0,0,0,0.7), inset 0 -1px 0 rgba(255,255,255,0.06);
 }
 input[type=range]::-webkit-slider-thumb {
-  -webkit-appearance: none; width: 16px; height: 16px;
-  border-radius: 50%;
-  background: linear-gradient(180deg, #e0e6f0 0%, #b0bac8 45%, #8890a0 100%);
-  border-top: 1px solid #f0f4fa; border-bottom: 1px solid #505868;
-  box-shadow: 0 2px 5px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.5);
+  -webkit-appearance: none; width: 20px; height: 20px; border-radius: 50%;
+  background: linear-gradient(180deg,
+    #eef2f8 0%, #dce2ee 20%,
+    #b8c2d2 21%, #9aa4b4 55%,
+    #808a9a 100%);
+  border: 1px solid #282c38;
+  box-shadow:
+    0 1px 0 rgba(255,255,255,0.6) inset,
+    0 3px 7px rgba(0,0,0,0.6),
+    0 1px 2px rgba(0,0,0,0.4);
   cursor: pointer;
 }
 
@@ -112,26 +143,46 @@ input[type=range]::-webkit-slider-thumb {
   cursor: pointer; min-width: 80px; will-change: transform;
 }
 .xrec-icon {
-  width: 60px; height: 60px;
+  width: 60px; height: 60px; border-radius: 14px;
   display: flex; align-items: center; justify-content: center;
-  font-size: 22px; color: #6a7080;
-  background: linear-gradient(180deg, #d0d5de 0%, #9aa0ae 40%, #7a8090 100%);
-  border-top: 1px solid #e8ecf2;
-  border-left: 1px solid #d8dde6;
-  border-right: 1px solid #505560;
-  border-bottom: 1px solid #3a3e48;
-  box-shadow: 0 3px 8px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.45);
-  transition: all 0.15s;
+  font-size: 22px; color: #4a5060;
+  background: linear-gradient(180deg,
+    #e4e8f0 0%, #d0d6e2 18%,
+    #a8b0c0 19%, #8890a2 50%,
+    #727a8a 75%, #606878 100%);
+  border: 1px solid #2e323c;
+  box-shadow:
+    0 1px 0 rgba(255,255,255,0.55) inset,
+    0 -1px 0 rgba(0,0,0,0.3) inset,
+    0 4px 10px rgba(0,0,0,0.6),
+    0 1px 2px rgba(0,0,0,0.4);
+  transition: all 0.15s; position: relative; overflow: hidden;
+}
+.xrec-icon::after {
+  content: ''; position: absolute;
+  top: 0; left: 0; right: 0; height: 50%;
+  border-radius: 14px 14px 0 0;
+  background: linear-gradient(180deg, rgba(255,255,255,0.30) 0%, rgba(255,255,255,0.06) 100%);
+  pointer-events: none;
 }
 .xrec-icon:hover, .xrec-item:hover .xrec-icon {
-  background: linear-gradient(180deg, #dce2ec 0%, #adb6c6 40%, #8a94a4 100%);
+  background: linear-gradient(180deg,
+    #dce2ec 0%, #cad0dc 18%,
+    #a0a8ba 19%, #848ea0 50%,
+    #6e7888 75%, #5c6574 100%);
   color: #2a2e3a;
 }
 .xrec-icon.active-mode {
-  background: linear-gradient(180deg, #e8edf5 0%, #bcc4d2 35%, #9aa4b4 100%);
-  border-top-color: #ffffff;
+  background: linear-gradient(180deg,
+    #f0f4fc 0%, #dce4f0 18%,
+    #c0c8d8 19%, #a0aaba 50%,
+    #8890a0 75%, #707a8c 100%);
   color: #1a1e28;
-  box-shadow: 0 3px 12px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.7), 0 0 14px rgba(200,215,240,0.3);
+  box-shadow:
+    0 1px 0 rgba(255,255,255,0.75) inset,
+    0 -1px 0 rgba(0,0,0,0.25) inset,
+    0 4px 14px rgba(0,0,0,0.65),
+    0 0 12px rgba(200,218,250,0.25);
 }
 .xrec-icon.recording { border-color: #ff4455; color: #ff4455; animation: pulse-rec 1.1s ease-in-out infinite; }
 @keyframes pulse-rec {
@@ -147,26 +198,46 @@ input[type=range]::-webkit-slider-thumb {
   cursor: pointer;
 }
 .xcat-icon {
-  width: 44px; height: 44px;
+  width: 44px; height: 44px; border-radius: 11px;
   display: flex; align-items: center; justify-content: center;
-  font-size: 20px; color: #70788a;
-  background: linear-gradient(180deg, #c8cdd8 0%, #8e94a2 45%, #6e7480 100%);
-  border-top: 1px solid #dde2ea;
-  border-left: 1px solid #ccd0d8;
-  border-right: 1px solid #484c56;
-  border-bottom: 1px solid #363a42;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.4);
+  font-size: 19px; color: #50586a;
+  background: linear-gradient(180deg,
+    #dce0ea 0%, #cacfd8 18%,
+    #9ea6b4 19%, #808896 50%,
+    #686e7c 75%, #585e6a 100%);
+  border: 1px solid #282c36;
+  box-shadow:
+    0 1px 0 rgba(255,255,255,0.5) inset,
+    0 -1px 0 rgba(0,0,0,0.28) inset,
+    0 3px 7px rgba(0,0,0,0.55);
   transition: background 0.2s, color 0.2s, box-shadow 0.2s;
-  will-change: transform;
+  will-change: transform; position: relative; overflow: hidden;
+}
+.xcat-icon::after {
+  content: ''; position: absolute;
+  top: 0; left: 0; right: 0; height: 50%;
+  border-radius: 11px 11px 0 0;
+  background: linear-gradient(180deg, rgba(255,255,255,0.28) 0%, rgba(255,255,255,0.05) 100%);
+  pointer-events: none;
 }
 .xcat.active .xcat-icon {
-  background: linear-gradient(180deg, #e4eaf4 0%, #bac2d0 35%, #98a2b2 100%);
-  border-top-color: #ffffff;
+  background: linear-gradient(180deg,
+    #ecf0f8 0%, #d8e0ec 18%,
+    #b4bece 19%, #98a4b4 50%,
+    #808c9c 75%, #6c7888 100%);
   color: #1a1e28;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.65), 0 0 10px rgba(200,215,240,0.25);
+  box-shadow:
+    0 1px 0 rgba(255,255,255,0.7) inset,
+    0 -1px 0 rgba(0,0,0,0.2) inset,
+    0 3px 10px rgba(0,0,0,0.6),
+    0 0 8px rgba(200,218,250,0.2);
 }
-.xcat-label { font-size: 11px; letter-spacing: 0.18em; color: rgba(170,182,204,0.6); text-transform: uppercase; transition: color 0.2s; }
-.xcat.active .xcat-label { color: #c0cce0; }
+.xcat-label {
+  font-size: 10px; letter-spacing: 0.16em; color: rgba(185,196,216,0.55);
+  text-transform: uppercase; font-weight: 500;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.8); transition: color 0.2s;
+}
+.xcat.active .xcat-label { color: #c8d6ee; text-shadow: 0 0 6px rgba(200,218,255,0.3), 0 1px 2px rgba(0,0,0,0.8); }
 /* active cat underline */
 .xcat.active::after {
   content: ''; position: absolute; bottom: -6px;
@@ -198,29 +269,59 @@ body.minimal canvas { display: none; }
 #rec-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.65); z-index: 40; align-items: center; justify-content: center; }
 #rec-modal.open { display: flex; }
 #rec-box {
-  background: linear-gradient(180deg, #c8cdd8 0%, #9098a8 55%, #788090 100%);
-  border-top: 1px solid #e0e5ee; border-left: 1px solid #d4d9e2;
-  border-right: 1px solid #404850; border-bottom: 1px solid #303840;
-  box-shadow: 0 8px 28px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.5);
+  border-radius: 18px;
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='4' height='4'%3E%3Crect width='4' height='4' fill='%23b0b8c8'/%3E%3Crect x='0' y='0' width='2' height='2' fill='%23b8c0d0' opacity='0.5'/%3E%3Crect x='2' y='2' width='2' height='2' fill='%23a8b0c0' opacity='0.5'/%3E%3C/svg%3E"),
+    linear-gradient(180deg, #cdd2dc 0%, #9ba4b4 50%, #828c9c 100%);
+  border: 1px solid #262a34;
+  box-shadow:
+    0 1px 0 rgba(255,255,255,0.45) inset,
+    0 -1px 0 rgba(0,0,0,0.3) inset,
+    0 12px 40px rgba(0,0,0,0.75),
+    0 2px 6px rgba(0,0,0,0.5);
   padding: 36px 40px; display: flex; flex-direction: column; gap: 14px; min-width: 300px;
 }
-#rec-box h2 { font-size: 11px; letter-spacing: 0.3em; color: #1a1e28; font-weight: 600; margin-bottom: 6px; text-shadow: 0 1px 0 rgba(255,255,255,0.4); }
+#rec-box h2 {
+  font-size: 11px; letter-spacing: 0.3em; color: #18202e;
+  font-weight: 700; margin-bottom: 6px;
+  text-shadow: 0 1px 0 rgba(255,255,255,0.45);
+}
 .rec-opt {
-  background: linear-gradient(180deg, #b8bfcc 0%, #848ca0 100%);
-  border-top: 1px solid #ccd2dc; border-left: 1px solid #c0c6d0;
-  border-right: 1px solid #404850; border-bottom: 1px solid #383e4a;
-  box-shadow: 0 2px 5px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.3);
-  color: #1a1e28; font-size: 11px; letter-spacing: 0.15em;
+  border-radius: 10px;
+  background: linear-gradient(180deg,
+    #dce2ec 0%, #ccd2de 18%,
+    #a8b2c2 19%, #8e98a8 55%,
+    #7a8494 100%);
+  border: 1px solid #262a36;
+  box-shadow:
+    0 1px 0 rgba(255,255,255,0.5) inset,
+    0 3px 6px rgba(0,0,0,0.45);
+  color: #18202e; font-size: 11px; letter-spacing: 0.15em;
   text-transform: uppercase; padding: 13px 18px; cursor: pointer;
   text-align: left; font-family: inherit; transition: all 0.15s;
+  position: relative; overflow: hidden;
+}
+.rec-opt::after {
+  content: ''; position: absolute;
+  top: 0; left: 0; right: 0; height: 50%; border-radius: 10px 10px 0 0;
+  background: linear-gradient(180deg, rgba(255,255,255,0.28) 0%, rgba(255,255,255,0.04) 100%);
+  pointer-events: none;
 }
 .rec-opt:hover {
-  background: linear-gradient(180deg, #d0d8e4 0%, #9aa4b4 100%);
+  background: linear-gradient(180deg,
+    #eaf0f8 0%, #d8e0ec 18%,
+    #b8c2d2 19%, #9eaabb 55%,
+    #8894a4 100%);
   color: #0a0e18;
 }
-.rec-opt span { font-size: 9px; color: rgba(20,24,36,0.5); display: block; margin-top: 3px; letter-spacing: 0.1em; }
-.rec-cancel { font-size: 9px; letter-spacing: 0.18em; color: rgba(20,24,36,0.4); background: none; border: none; cursor: pointer; font-family: inherit; text-transform: uppercase; padding: 4px 0; margin-top: 4px; }
-.rec-cancel:hover { color: rgba(20,24,36,0.75); }
+.rec-opt span { font-size: 9px; color: rgba(18,24,38,0.5); display: block; margin-top: 3px; letter-spacing: 0.1em; }
+.rec-cancel {
+  font-size: 9px; letter-spacing: 0.18em; color: rgba(18,24,38,0.42);
+  background: none; border: none; cursor: pointer; font-family: inherit;
+  text-transform: uppercase; padding: 4px 0; margin-top: 4px;
+  text-shadow: 0 1px 0 rgba(255,255,255,0.3);
+}
+.rec-cancel:hover { color: rgba(18,24,38,0.78); }
 </style>
 </head>
 <body>
@@ -439,29 +540,41 @@ function drawPiano() {
       const press = isC ? 3 : 0;
 
       const wx = x + 1, wy = y0 + press, ww = wkw - 2, wh = wkh - press;
-      ctx.beginPath(); ctx.rect(wx, wy, ww, wh);
+      const wr = 3; // bottom corner radius
+      ctx.beginPath(); ctx.roundRect(wx, wy, ww, wh, [0, 0, wr, wr]);
       const wg = ctx.createLinearGradient(wx, wy, wx, wy + wh);
       if (isC) {
-        wg.addColorStop(0,   `rgba(255,255,255,${0.97 + pianoGlow * 0.03})`);
-        wg.addColorStop(0.12, `rgba(240,244,250,${0.97 + pianoGlow * 0.03})`);
-        wg.addColorStop(0.55, `rgba(195,204,218,0.98)`);
-        wg.addColorStop(1,   `rgba(160,170,186,0.98)`);
+        const g0 = 0.96 + pianoGlow * 0.04;
+        wg.addColorStop(0,    `rgba(255,255,255,${g0})`);
+        wg.addColorStop(0.04, `rgba(248,246,240,${g0})`);
+        wg.addColorStop(0.45, `rgba(228,224,215,0.98)`);
+        wg.addColorStop(0.85, `rgba(205,200,190,0.99)`);
+        wg.addColorStop(1,    `rgba(185,180,170,0.99)`);
       } else if (isD) {
-        wg.addColorStop(0,    'rgba(180,200,230,0.95)');
-        wg.addColorStop(0.12, 'rgba(160,185,220,0.90)');
-        wg.addColorStop(0.55, 'rgba(110,145,195,0.88)');
-        wg.addColorStop(1,    'rgba(80,115,170,0.90)');
+        wg.addColorStop(0,    'rgba(200,218,245,0.97)');
+        wg.addColorStop(0.04, 'rgba(185,206,238,0.95)');
+        wg.addColorStop(0.45, 'rgba(130,162,210,0.95)');
+        wg.addColorStop(1,    'rgba(90,125,180,0.97)');
       } else {
-        wg.addColorStop(0,    'rgba(220,226,236,0.92)');
-        wg.addColorStop(0.12, 'rgba(205,212,224,0.88)');
-        wg.addColorStop(0.55, 'rgba(165,174,190,0.86)');
-        wg.addColorStop(1,    'rgba(135,144,160,0.88)');
+        wg.addColorStop(0,    'rgba(248,246,240,0.95)');
+        wg.addColorStop(0.04, 'rgba(236,233,226,0.92)');
+        wg.addColorStop(0.45, 'rgba(210,207,198,0.90)');
+        wg.addColorStop(0.85, 'rgba(188,185,175,0.90)');
+        wg.addColorStop(1,    'rgba(170,167,158,0.92)');
       }
       ctx.fillStyle = wg; ctx.fill();
-      ctx.strokeStyle = 'rgba(255,255,255,0.55)'; ctx.lineWidth = 1;
+      // top highlight
+      ctx.beginPath(); ctx.roundRect(wx, wy, ww, Math.round(wh * 0.06), [0, 0, 0, 0]);
+      ctx.fillStyle = 'rgba(255,255,255,0.55)'; ctx.fill();
+      // bevel strokes
+      ctx.lineWidth = 1;
+      ctx.strokeStyle = 'rgba(255,255,255,0.5)';
       ctx.beginPath(); ctx.moveTo(wx, wy + wh); ctx.lineTo(wx, wy); ctx.lineTo(wx + ww, wy); ctx.stroke();
-      ctx.strokeStyle = 'rgba(30,34,44,0.6)';
+      ctx.strokeStyle = 'rgba(30,26,20,0.45)';
       ctx.beginPath(); ctx.moveTo(wx + ww, wy); ctx.lineTo(wx + ww, wy + wh); ctx.lineTo(wx, wy + wh); ctx.stroke();
+      // outer border
+      ctx.beginPath(); ctx.roundRect(wx, wy, ww, wh, [0, 0, wr, wr]);
+      ctx.strokeStyle = 'rgba(80,70,55,0.25)'; ctx.stroke();
 
       if (isC) {
         const g = ctx.createLinearGradient(x, y0 + wkh * 0.5, x, y0 + wkh + 55);
@@ -526,37 +639,39 @@ function drawPiano() {
       const press = isC ? 3 : 0;
 
       const bx2 = x, by2 = y0 + press, bw2 = bkw, bh2 = bkh - press;
-      ctx.beginPath(); ctx.rect(bx2, by2, bw2, bh2);
+      const br = 2;
+      ctx.beginPath(); ctx.roundRect(bx2, by2, bw2, bh2, [0, 0, br, br]);
       const bg = ctx.createLinearGradient(bx2, by2, bx2, by2 + bh2);
       if (isC) {
-        bg.addColorStop(0,    `rgba(235,240,250,${0.96 + pianoGlow * 0.04})`);
-        bg.addColorStop(0.08, `rgba(200,210,228,0.96)`);
-        bg.addColorStop(0.5,  `rgba(140,152,172,0.97)`);
-        bg.addColorStop(1,    `rgba(95,104,120,0.98)`);
+        const g0 = 0.96 + pianoGlow * 0.04;
+        bg.addColorStop(0,    `rgba(230,236,248,${g0})`);
+        bg.addColorStop(0.06, `rgba(195,206,226,${g0})`);
+        bg.addColorStop(0.4,  'rgba(140,152,172,0.97)');
+        bg.addColorStop(1,    'rgba(90,100,116,0.98)');
       } else if (isD) {
-        bg.addColorStop(0,    'rgba(120,155,210,0.98)');
-        bg.addColorStop(0.08, 'rgba(90,130,195,0.97)');
-        bg.addColorStop(0.5,  'rgba(55,90,158,0.97)');
-        bg.addColorStop(1,    'rgba(30,55,115,0.98)');
+        bg.addColorStop(0,    'rgba(110,148,208,0.99)');
+        bg.addColorStop(0.06, 'rgba(80,120,192,0.98)');
+        bg.addColorStop(0.4,  'rgba(48,82,150,0.98)');
+        bg.addColorStop(1,    'rgba(22,44,105,0.99)');
       } else {
-        bg.addColorStop(0,    'rgba(88,94,108,0.99)');
-        bg.addColorStop(0.08, 'rgba(52,56,68,0.99)');
-        bg.addColorStop(0.5,  'rgba(24,26,34,0.99)');
-        bg.addColorStop(1,    'rgba(10,11,16,1.0)');
+        bg.addColorStop(0,    'rgba(72,78,92,1.0)');
+        bg.addColorStop(0.06, 'rgba(40,43,54,1.0)');
+        bg.addColorStop(0.4,  'rgba(18,20,27,1.0)');
+        bg.addColorStop(1,    'rgba(6,7,10,1.0)');
       }
       ctx.fillStyle = bg; ctx.fill();
-      // sheen highlight stripe at top
-      if (!isC) {
-        const sh = ctx.createLinearGradient(bx2, by2, bx2 + bw2, by2);
-        sh.addColorStop(0,   'rgba(255,255,255,0.0)');
-        sh.addColorStop(0.3, 'rgba(255,255,255,0.12)');
-        sh.addColorStop(0.7, 'rgba(255,255,255,0.06)');
-        sh.addColorStop(1,   'rgba(255,255,255,0.0)');
-        ctx.fillStyle = sh; ctx.fillRect(bx2, by2, bw2, Math.round(bh2 * 0.22));
-      }
-      ctx.strokeStyle = 'rgba(255,255,255,0.18)'; ctx.lineWidth = 1;
+      // glass sheen across the top third
+      ctx.beginPath(); ctx.roundRect(bx2 + 1, by2 + 1, bw2 - 2, Math.round(bh2 * 0.30), [0, 0, 0, 0]);
+      const sh = ctx.createLinearGradient(bx2, by2, bx2, by2 + bh2 * 0.30);
+      sh.addColorStop(0,   'rgba(255,255,255,0.22)');
+      sh.addColorStop(0.5, 'rgba(255,255,255,0.08)');
+      sh.addColorStop(1,   'rgba(255,255,255,0.0)');
+      ctx.fillStyle = sh; ctx.fill();
+      // bevel
+      ctx.lineWidth = 1;
+      ctx.strokeStyle = 'rgba(255,255,255,0.18)';
       ctx.beginPath(); ctx.moveTo(bx2, by2 + bh2); ctx.lineTo(bx2, by2); ctx.lineTo(bx2 + bw2, by2); ctx.stroke();
-      ctx.strokeStyle = 'rgba(0,0,0,0.7)';
+      ctx.strokeStyle = 'rgba(0,0,0,0.75)';
       ctx.beginPath(); ctx.moveTo(bx2 + bw2, by2); ctx.lineTo(bx2 + bw2, by2 + bh2); ctx.lineTo(bx2, by2 + bh2); ctx.stroke();
 
       // scale lock overlay
