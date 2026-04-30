@@ -24,20 +24,21 @@ class GrainShifter {
     this.MASK = 4095;
     this.buf       = new Float32Array(4096);
     this.writePos  = 0;
-    this.phaseA    = 0.0;
-    this.phaseB    = 0.5;
-    this.grainSize = 384;
+    this.phases    = [0.0, 1/3, 2/3]; // 3-tap: sum of Hann = 1.5, divide out below
+    this.grainSize = 256;
   }
 
   process(input, pitchRatio) {
     this.buf[this.writePos & this.MASK] = input;
     this.writePos++;
     const inc = (1.0 - pitchRatio) / this.grainSize;
-    this.phaseA += inc; this.phaseA -= Math.floor(this.phaseA);
-    this.phaseB += inc; this.phaseB -= Math.floor(this.phaseB);
-    const sA = this._read(this.phaseA * this.grainSize + 2.0);
-    const sB = this._read(this.phaseB * this.grainSize + 2.0);
-    return sA * this._hann(this.phaseA) + sB * this._hann(this.phaseB);
+    let out = 0;
+    for (let i = 0; i < 3; i++) {
+      this.phases[i] += inc;
+      this.phases[i] -= Math.floor(this.phases[i]);
+      out += this._read(this.phases[i] * this.grainSize + 2.0) * this._hann(this.phases[i]);
+    }
+    return out * (2 / 3); // normalise: 3 Hann windows at 1/3 offset sum to 1.5
   }
 
   _read(delay) {
@@ -75,6 +76,7 @@ class SilvertuneProcessor extends AudioWorkletProcessor {
     this.bypass   = false;
 
     this.postCounter = 0;
+    this.POST_EVERY  = 600;
     this.rmsAcc      = 0;
     this.rmsCount    = 0;
 
@@ -145,7 +147,7 @@ class SilvertuneProcessor extends AudioWorkletProcessor {
     }
 
     this.postCounter += input.length;
-    if (this.postCounter >= 1200) {
+    if (this.postCounter >= this.POST_EVERY) {
       this.postCounter = 0;
       const rms = Math.sqrt(this.rmsAcc / Math.max(1, this.rmsCount));
       this.rmsAcc = 0; this.rmsCount = 0;
