@@ -23,13 +23,13 @@ jobs:
         include:
           - os: ubuntu-22.04
             artifact: silvertune-companion-linux
-            binary: companion/target/release/silvertune-companion
+            binary: target/release/silvertune-companion
           - os: windows-latest
             artifact: silvertune-companion-windows.exe
             binary: target/release/silvertune-companion.exe
           - os: macos-latest
             artifact: silvertune-companion-macos
-            binary: companion/target/release/silvertune-companion
+            binary: target/release/silvertune-companion
 
     runs-on: ${{ matrix.os }}
 
@@ -81,7 +81,7 @@ jobs:
       - name: Locate macOS binary
         if: runner.os == 'macOS'
         run: |
-          cp companion/target/universal-apple-darwin/release/silvertune-companion companion/target/release/silvertune-companion || true
+          cp target/universal-apple-darwin/release/silvertune-companion target/release/silvertune-companion || true
 
       - name: Rename binary
         shell: bash
