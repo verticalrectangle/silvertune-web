@@ -771,7 +771,7 @@ document.getElementById('start').addEventListener('click', async () => {
   const stream = await navigator.mediaDevices.getUserMedia({
     audio: { echoCancellation:false, noiseSuppression:false, autoGainControl:false }, video:false,
   });
-  actx = new AudioContext({ latencyHint:'interactive', sampleRate:48000 });
+  actx = new AudioContext({ latencyHint: 0, sampleRate:48000 });
   const source = actx.createMediaStreamSource(stream);
   await actx.audioWorklet.addModule('worklet.js');
   workletNode = new AudioWorkletNode(actx,'silvertune-processor',{
