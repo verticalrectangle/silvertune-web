@@ -245,6 +245,44 @@ input[type=range]::-webkit-slider-thumb {
 }
 .xcat { position: relative; }
 
+/* ── Minimal toggle button ── */
+#btn-minimal {
+  position: fixed; bottom: 22px; right: 22px; z-index: 10;
+  width: 44px; height: 44px; border-radius: 11px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px; color: #4a5060; cursor: pointer;
+  background: linear-gradient(180deg,
+    #dce0ea 0%, #cacfd8 18%,
+    #9ea6b4 19%, #808896 50%,
+    #686e7c 75%, #585e6a 100%);
+  border: 1px solid #282c36;
+  box-shadow:
+    0 1px 0 rgba(255,255,255,0.5) inset,
+    0 -1px 0 rgba(0,0,0,0.28) inset,
+    0 3px 7px rgba(0,0,0,0.55);
+  overflow: hidden; position: fixed;
+  transition: background 0.15s, color 0.15s;
+}
+#btn-minimal::after {
+  content: ''; position: absolute;
+  top: 0; left: 0; right: 0; height: 50%;
+  border-radius: 11px 11px 0 0;
+  background: linear-gradient(180deg, rgba(255,255,255,0.28) 0%, rgba(255,255,255,0.05) 100%);
+  pointer-events: none;
+}
+#btn-minimal.on {
+  background: linear-gradient(180deg,
+    #ecf0f8 0%, #d8e0ec 18%,
+    #b4bece 19%, #98a4b4 50%,
+    #808c9c 75%, #6c7888 100%);
+  color: #1a1e28;
+  box-shadow:
+    0 1px 0 rgba(255,255,255,0.7) inset,
+    0 -1px 0 rgba(0,0,0,0.2) inset,
+    0 3px 10px rgba(0,0,0,0.6),
+    0 0 8px rgba(200,218,250,0.2);
+}
+
 /* ── Minimal ── */
 body.minimal canvas { display: none; }
 
@@ -383,9 +421,17 @@ body.minimal canvas { display: none; }
           <div class="xrec-icon" id="ricon-audio">◉</div>
           <div class="xrec-label">Audio</div>
         </div>
-        <div class="xrec-item" id="ritem-minimal">
-          <div class="xrec-icon" id="ricon-minimal">▣</div>
-          <div class="xrec-label">Minimal</div>
+      </div>
+    </div>
+
+    <!-- SETTINGS panel -->
+    <div id="sub-settings" class="sub-panel">
+      <div class="sound-row">
+        <div class="s-ctl"><label>Input</label>
+          <select id="sel-input-dev"><option value="">Default</option></select>
+        </div>
+        <div class="s-ctl"><label>Output</label>
+          <select id="sel-output-dev"><option value="">Default</option></select>
         </div>
       </div>
     </div>
@@ -396,8 +442,12 @@ body.minimal canvas { display: none; }
     <div class="xcat active" data-cat="0"><div class="xcat-icon">✦</div><div class="xcat-label">FX</div></div>
     <div class="xcat"        data-cat="1"><div class="xcat-icon">◎</div><div class="xcat-label">Sound</div></div>
     <div class="xcat"        data-cat="2"><div class="xcat-icon">●</div><div class="xcat-label">Rec</div></div>
+    <div class="xcat"        data-cat="3"><div class="xcat-icon">⚙</div><div class="xcat-label">Settings</div></div>
   </div>
 </div>
+
+<!-- Minimal toggle — fixed bottom-right -->
+<button id="btn-minimal" title="Minimal mode">▣</button>
 
 <div id="rec-modal">
   <div id="rec-box">
@@ -464,16 +514,43 @@ FX_DEFS.forEach((def, i) => {
 });
 
 // Category switching
+const CAT_PANELS = ['sub-fx','sub-sound','sub-rec','sub-settings'];
 document.querySelectorAll('.xcat').forEach(cat => {
   cat.addEventListener('click', () => {
     xmbActiveCat = parseInt(cat.dataset.cat);
     document.querySelectorAll('.xcat').forEach(c => c.classList.remove('active'));
     cat.classList.add('active');
     document.querySelectorAll('.sub-panel').forEach(p => p.classList.remove('visible'));
-    ['sub-fx','sub-sound','sub-rec'][xmbActiveCat] &&
-      document.getElementById(['sub-fx','sub-sound','sub-rec'][xmbActiveCat]).classList.add('visible');
+    const pid = CAT_PANELS[xmbActiveCat];
+    if (pid) document.getElementById(pid).classList.add('visible');
   });
 });
+
+// Minimal toggle
+document.getElementById('btn-minimal').addEventListener('click', () => {
+  const on = document.body.classList.toggle('minimal');
+  document.getElementById('btn-minimal').classList.toggle('on', on);
+});
+
+// Settings — enumerate devices and populate selects
+async function populateDevices() {
+  let devices;
+  try { devices = await navigator.mediaDevices.enumerateDevices(); }
+  catch(e) { return; }
+  const inSel  = document.getElementById('sel-input-dev');
+  const outSel = document.getElementById('sel-output-dev');
+  inSel.innerHTML  = '<option value="">Default</option>';
+  outSel.innerHTML = '<option value="">Default</option>';
+  devices.forEach(d => {
+    const opt = document.createElement('option');
+    opt.value = d.deviceId;
+    opt.textContent = d.label || d.deviceId.slice(0,12);
+    if (d.kind === 'audioinput')  inSel.appendChild(opt);
+    if (d.kind === 'audiooutput') outSel.appendChild(opt.cloneNode(true));
+  });
+}
+navigator.mediaDevices.addEventListener('devicechange', populateDevices);
+populateDevices();
 
 function tickXmb() {}
 
@@ -1069,10 +1146,14 @@ document.getElementById('rec-start-audio').addEventListener('click', ()=>{
 document.getElementById('ritem-audio').addEventListener('click', ()=>{
   isRecording ? stopRecording() : startRecording('audio');
 });
-document.getElementById('ritem-minimal').addEventListener('click', ()=>{
-  const on=document.body.classList.toggle('minimal');
-  document.getElementById('ricon-minimal').classList.toggle('active-mode', on);
+// Output device switching (setSinkId — Chrome/Edge only)
+document.getElementById('sel-output-dev').addEventListener('change', async e => {
+  const id = e.target.value;
+  if (typeof actx?.destination?.setSinkId === 'function') {
+    try { await actx.destination.setSinkId(id); } catch(_) {}
+  }
 });
+
 document.getElementById('rec-cancel-btn').addEventListener('click', ()=>{
   document.getElementById('rec-modal').classList.remove('open');
 });
@@ -1098,6 +1179,7 @@ document.getElementById('start').addEventListener('click', async () => {
   workletNode.connect(audioDest);
   initOrbs(); initHexes(); initStarPtcls();
   isRunning = true;
+  populateDevices();
 });
 
 render();
