@@ -1172,9 +1172,16 @@ document.getElementById('rec-cancel-btn').addEventListener('click', ()=>{
 document.getElementById('start').addEventListener('click', async () => {
   document.getElementById('start').remove();
   const stream = await navigator.mediaDevices.getUserMedia({
-    audio: { echoCancellation:false, noiseSuppression:false, autoGainControl:false }, video:false,
+    audio: {
+      echoCancellation: false,
+      noiseSuppression: false,
+      autoGainControl: false,
+      latency: 0,
+      channelCount: 1,
+    },
+    video: false,
   });
-  actx = new AudioContext({ latencyHint: 0 });
+  actx = new AudioContext({ latencyHint: 'interactive' });
   console.log(`base: ${actx.baseLatency*1000|0}ms  output: ${actx.outputLatency*1000|0}ms  sr: ${actx.sampleRate}Hz`);
   const source = actx.createMediaStreamSource(stream);
   await actx.audioWorklet.addModule('worklet.js');
