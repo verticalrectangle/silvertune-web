@@ -48,10 +48,16 @@ fn run_audio(params: SharedParams, tx: Sender<PitchEvent>) {
         out_cfg.channels()
     );
 
+    // WASAPI (Windows) shared mode doesn't allow fixed buffer sizes
+    #[cfg(target_os = "windows")]
+    let buf = BufferSize::Default;
+    #[cfg(not(target_os = "windows"))]
+    let buf = BufferSize::Fixed(128);
+
     let stream_cfg = StreamConfig {
         channels: 1,
         sample_rate: SampleRate(sample_rate as u32),
-        buffer_size: BufferSize::Fixed(128),
+        buffer_size: buf,
     };
 
     // Shared DSP state between input and output via a ringbuf-style channel
@@ -133,7 +139,7 @@ fn run_audio(params: SharedParams, tx: Sender<PitchEvent>) {
     let out_stream_cfg = StreamConfig {
         channels: out_cfg.channels(),
         sample_rate: SampleRate(sample_rate as u32),
-        buffer_size: BufferSize::Fixed(128),
+        buffer_size: buf,
     };
 
     let output_stream = output_dev

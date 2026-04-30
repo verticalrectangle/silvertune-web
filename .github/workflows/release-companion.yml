@@ -48,6 +48,7 @@ jobs:
             pkg-config
 
       - name: Install Tauri CLI
+        if: runner.os != 'Windows'
         run: cargo install tauri-cli --version "^2.0" --locked
 
       - name: Build macOS universal binary
@@ -59,13 +60,19 @@ jobs:
         env:
           TAURI_SIGNING_PRIVATE_KEY: ""
 
-      - name: Build (Linux / Windows)
-        if: runner.os != 'macOS'
+      - name: Build Linux
+        if: runner.os == 'Linux'
         run: |
           cd companion
           cargo tauri build --ci
         env:
           TAURI_SIGNING_PRIVATE_KEY: ""
+
+      - name: Build Windows
+        if: runner.os == 'Windows'
+        run: |
+          cd companion
+          cargo build --release
 
       - name: Locate macOS binary
         if: runner.os == 'macOS'
