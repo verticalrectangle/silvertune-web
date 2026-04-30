@@ -66,7 +66,6 @@ class SilvertuneProcessor extends AudioWorkletProcessor {
     this.yinPos   = 0;
 
     this.heldRatio     = 1.0;
-    this.targetRatio   = 1.0;
     this.detectedNote  = -1;
     this.correctedNote = -1;
 
@@ -111,12 +110,12 @@ class SilvertuneProcessor extends AudioWorkletProcessor {
     const shift = Math.abs(denom) > 1e-12 ? (s0-s2)/denom : 0;
     const hz = sampleRate / (tau + shift);
     const conf = Math.max(0, Math.min(1, 1-s1));
-    if (hz > 80 && hz < 2000 && conf > 0.35) {
+    if (hz > 80 && hz < 2000 && conf > 0.5) {
       const detMidi  = Math.round(hzToMidi(hz));
       const corrMidi = quantizeToScale(detMidi, this.keyIdx, this.scaleIdx);
       let ratio = midiToHz(corrMidi) / hz;
       ratio = 1.0 + (ratio - 1.0) * this.tune;
-      this.targetRatio   = Math.max(0.5, Math.min(2.0, ratio));
+      this.heldRatio     = Math.max(0.5, Math.min(2.0, ratio));
       this.detectedNote  = detMidi;
       this.correctedNote = corrMidi;
     }
@@ -141,14 +140,9 @@ class SilvertuneProcessor extends AudioWorkletProcessor {
       if (this.bypass) {
         output[i] = s;
       } else {
-        // Lerp toward target — fast glide on large jumps (~1ms), instant on small ones
-        const diff = this.targetRatio - this.heldRatio;
-        this.heldRatio += diff * (Math.abs(diff) > 0.03 ? 0.08 : 1.0);
-
         const wet = this.shifter.process(s, this.heldRatio);
         const dbl = this.doubler.process(s, this.heldRatio * DETUNE);
-        // 10% dry blend — attack arrives at 0ms, correction layers on
-        output[i] = wet * 0.8 + dbl * this.wide + s * 0.2;
+        output[i] = wet + dbl * this.wide;
       }
     }
 
