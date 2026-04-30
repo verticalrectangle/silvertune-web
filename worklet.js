@@ -24,7 +24,7 @@ class GrainShifter {
     this.MASK = 4095;
     this.buf       = new Float32Array(4096);
     this.writePos  = 0;
-    this.phases    = [0.0, 1/3, 2/3]; // 3-tap COLA: sum of Hann at 1/3 offset = 1.5
+    this.phases    = [0.0, 1/3, 2/3]; // 3-tap: sum of Hann = 1.5, divide out below
     this.grainSize = 128;
   }
 
@@ -38,7 +38,7 @@ class GrainShifter {
       this.phases[i] -= Math.floor(this.phases[i]);
       out += this._read(this.phases[i] * this.grainSize + 2.0) * this._hann(this.phases[i]);
     }
-    return out * (2 / 3);
+    return out * (2 / 3); // normalise: 3 Hann windows at 1/3 offset sum to 1.5
   }
 
   _read(delay) {
@@ -52,55 +52,34 @@ class GrainShifter {
   _hann(p) { return 0.5 * (1 - Math.cos(2 * Math.PI * p)); }
 }
 
-// Shared YIN runner — works on any buf/diff pair
-function runYin(buf, diff, HALF, sr) {
-  for (let tau = 0; tau < HALF; tau++) {
-    let sum = 0;
-    for (let j = 0; j < HALF; j++) { const d = buf[j] - buf[j+tau]; sum += d*d; }
-    diff[tau] = sum;
-  }
-  diff[0] = 1.0;
-  let run = 0;
-  for (let tau = 1; tau < HALF; tau++) { run += diff[tau]; diff[tau] = diff[tau]*tau/run; }
-  let tau = 2;
-  for (; tau < HALF; tau++) {
-    if (diff[tau] < 0.15) { while (tau+1 < HALF && diff[tau+1] < diff[tau]) tau++; break; }
-  }
-  if (tau >= HALF) return null;
-  const s0=diff[tau-1], s1=diff[tau], s2=diff[Math.min(tau+1,HALF-1)];
-  const denom = 2*(2*s1-s2-s0);
-  const refined = tau + (Math.abs(denom) > 1e-12 ? (s0-s2)/denom : 0);
-  return { hz: sr / refined, conf: Math.max(0, Math.min(1, 1 - s1)) };
-}
-
 class SilvertuneProcessor extends AudioWorkletProcessor {
   constructor() {
     super();
     this.shifter = new GrainShifter();
     this.doubler = new GrainShifter();
 
-    // Full YIN — 512 samples, detects down to ~187Hz (covers all voices)
-    this.YIN_BUF  = 512; this.YIN_HALF = 256; this.YIN_HOP = 32;
+    this.YIN_BUF  = 512;
+    this.YIN_HALF = 256;
+    this.YIN_HOP  = 32;
     this.yinBuf   = new Float32Array(512);
     this.diff     = new Float32Array(256);
     this.yinPos   = 0;
-
-    // Fast YIN — 256 samples, detects down to ~375Hz (soprano/tenor/alto)
-    // Half the window = half the onset detection latency for high voices
-    this.FAST_BUF  = 256; this.FAST_HALF = 128; this.FAST_HOP = 32;
-    this.fastBuf   = new Float32Array(256);
-    this.fastDiff  = new Float32Array(128);
-    this.fastPos   = 0;
 
     this.heldRatio     = 1.0;
     this.targetRatio   = 1.0;
     this.detectedNote  = -1;
     this.correctedNote = -1;
 
-    this.tune = 1.0; this.wide = 0.0; this.keyIdx = 0; this.scaleIdx = 1; this.bypass = false;
+    this.tune     = 1.0;
+    this.wide     = 0.0;
+    this.keyIdx   = 0;
+    this.scaleIdx = 1;
+    this.bypass   = false;
 
-    this.postCounter = 0; this.POST_EVERY = 600;
-    this.rmsAcc = 0; this.rmsCount = 0;
+    this.postCounter = 0;
+    this.POST_EVERY  = 600;
+    this.rmsAcc      = 0;
+    this.rmsCount    = 0;
 
     this.port.onmessage = (e) => {
       const d = e.data;
@@ -112,16 +91,35 @@ class SilvertuneProcessor extends AudioWorkletProcessor {
     };
   }
 
-  _applyDetection(hz, conf, minHz, minConf) {
-    if (hz < minHz || hz > 2000 || conf < minConf) return false;
-    const detMidi  = Math.round(hzToMidi(hz));
-    const corrMidi = quantizeToScale(detMidi, this.keyIdx, this.scaleIdx);
-    let ratio = midiToHz(corrMidi) / hz;
-    ratio = 1.0 + (ratio - 1.0) * this.tune;
-    this.targetRatio   = Math.max(0.5, Math.min(2.0, ratio));
-    this.detectedNote  = detMidi;
-    this.correctedNote = corrMidi;
-    return true;
+  _yin() {
+    const buf = this.yinBuf, diff = this.diff, HALF = this.YIN_HALF;
+    for (let tau = 0; tau < HALF; tau++) {
+      let sum = 0;
+      for (let j = 0; j < HALF; j++) { const d = buf[j]-buf[j+tau]; sum += d*d; }
+      diff[tau] = sum;
+    }
+    diff[0] = 1.0;
+    let run = 0;
+    for (let tau = 1; tau < HALF; tau++) { run += diff[tau]; diff[tau] = diff[tau]*tau/run; }
+    let tau = 2;
+    for (; tau < HALF; tau++) {
+      if (diff[tau] < 0.15) { while (tau+1 < HALF && diff[tau+1] < diff[tau]) tau++; break; }
+    }
+    if (tau >= HALF) return;
+    const s0=diff[tau-1], s1=diff[tau], s2=diff[Math.min(tau+1,HALF-1)];
+    const denom = 2*(2*s1-s2-s0);
+    const shift = Math.abs(denom) > 1e-12 ? (s0-s2)/denom : 0;
+    const hz = sampleRate / (tau + shift);
+    const conf = Math.max(0, Math.min(1, 1-s1));
+    if (hz > 80 && hz < 2000 && conf > 0.35) {
+      const detMidi  = Math.round(hzToMidi(hz));
+      const corrMidi = quantizeToScale(detMidi, this.keyIdx, this.scaleIdx);
+      let ratio = midiToHz(corrMidi) / hz;
+      ratio = 1.0 + (ratio - 1.0) * this.tune;
+      this.targetRatio   = Math.max(0.5, Math.min(2.0, ratio));
+      this.detectedNote  = detMidi;
+      this.correctedNote = corrMidi;
+    }
   }
 
   process(inputs, outputs) {
@@ -129,39 +127,27 @@ class SilvertuneProcessor extends AudioWorkletProcessor {
     if (!input || !output) return true;
 
     for (let i = 0; i < input.length; i++) {
-      const s = input[i];
-
-      // Full YIN — low-priority, handles bass/baritone/low tenor (>187Hz)
-      this.yinBuf[this.yinPos++] = s;
+      this.yinBuf[this.yinPos++] = input[i];
       if (this.yinPos >= this.YIN_BUF) {
-        const r = runYin(this.yinBuf, this.diff, this.YIN_HALF, sampleRate);
-        if (r) this._applyDetection(r.hz, r.conf, 80, 0.35);
+        this._yin();
         this.yinBuf.copyWithin(0, this.YIN_HOP);
         this.yinPos = this.YIN_BUF - this.YIN_HOP;
       }
 
-      // Fast YIN — high-priority, overwrites full YIN for voices >375Hz
-      // Half the window (5.3ms vs 10.7ms) = locks on to new notes twice as fast
-      this.fastBuf[this.fastPos++] = s;
-      if (this.fastPos >= this.FAST_BUF) {
-        const r = runYin(this.fastBuf, this.fastDiff, this.FAST_HALF, sampleRate);
-        if (r) this._applyDetection(r.hz, r.conf, 375, 0.5);
-        this.fastBuf.copyWithin(0, this.FAST_HOP);
-        this.fastPos = this.FAST_BUF - this.FAST_HOP;
-      }
-
+      const s = input[i];
       this.rmsAcc += s * s;
       this.rmsCount++;
 
       if (this.bypass) {
         output[i] = s;
       } else {
-        // Snap toward target — fast glide on large interval jumps, instant on small
-        const delta = this.targetRatio - this.heldRatio;
-        this.heldRatio += delta * (Math.abs(delta) > 0.03 ? 0.25 : 1.0);
+        // Lerp toward target — fast glide on large jumps (~1ms), instant on small ones
+        const diff = this.targetRatio - this.heldRatio;
+        this.heldRatio += diff * (Math.abs(diff) > 0.03 ? 0.08 : 1.0);
 
         const wet = this.shifter.process(s, this.heldRatio);
         const dbl = this.doubler.process(s, this.heldRatio * DETUNE);
+        // 10% dry blend — attack arrives at 0ms, correction layers on
         output[i] = wet * 0.8 + dbl * this.wide + s * 0.2;
       }
     }
@@ -171,7 +157,11 @@ class SilvertuneProcessor extends AudioWorkletProcessor {
       this.postCounter = 0;
       const rms = Math.sqrt(this.rmsAcc / Math.max(1, this.rmsCount));
       this.rmsAcc = 0; this.rmsCount = 0;
-      this.port.postMessage({ detectedNote: this.detectedNote, correctedNote: this.correctedNote, rms });
+      this.port.postMessage({
+        detectedNote:  this.detectedNote,
+        correctedNote: this.correctedNote,
+        rms,
+      });
     }
 
     return true;
