@@ -148,7 +148,7 @@ class SilvertuneProcessor extends AudioWorkletProcessor {
         const wet = this.shifter.process(s, this.heldRatio);
         const dbl = this.doubler.process(s, this.heldRatio * DETUNE);
         // 10% dry blend — attack arrives at 0ms, correction layers on
-        output[i] = wet * 0.9 + dbl * this.wide + s * 0.1;
+        output[i] = wet * 0.8 + dbl * this.wide + s * 0.2;
       }
     }
 
