@@ -302,6 +302,24 @@ body.minimal canvas { display: none; }
   50%      { text-shadow: 0 0 110px #dde6f5, 0 0 260px rgba(210,224,245,0.3), 0 0 40px rgba(255,255,255,0.12); }
 }
 #start .sub { font-size: 11px; letter-spacing: 0.28em; color: rgba(255,255,255,0.18); }
+#companion-cta {
+  display: flex; flex-direction: column; align-items: center; gap: 10px;
+  margin-top: 32px; pointer-events: auto;
+}
+.cta-label { font-size: 9px; letter-spacing: 0.28em; text-transform: uppercase; color: rgba(255,255,255,0.22); }
+.cta-sub   { font-size: 8px; letter-spacing: 0.2em;  text-transform: uppercase; color: rgba(255,255,255,0.14); }
+.cta-links { display: flex; gap: 10px; }
+.cta-btn {
+  font-size: 9px; letter-spacing: 0.2em; text-transform: uppercase;
+  text-decoration: none; padding: 6px 14px; border-radius: 6px;
+  background: linear-gradient(180deg, #c8cdd8 0%, #888fa0 100%);
+  border-top: 1px solid #dde2ea; border-bottom: 1px solid #363a42;
+  border-left: 1px solid #ccd0d8; border-right: 1px solid #484c56;
+  color: #1a1e28; font-family: inherit; font-weight: 600;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.4);
+  transition: background 0.15s;
+}
+.cta-btn:hover { background: linear-gradient(180deg, #dce2ec 0%, #9aa4b4 100%); }
 
 /* ── Record modal ── */
 #rec-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.65); z-index: 40; align-items: center; justify-content: center; }
@@ -373,6 +391,15 @@ body.minimal canvas { display: none; }
 <div id="start">
   <h1>SILVERTUNE</h1>
   <p class="sub">CLICK TO BEGIN &nbsp;·&nbsp; USE HEADPHONES</p>
+  <div id="companion-cta">
+    <p class="cta-label">experiencing latency?</p>
+    <div class="cta-links">
+      <a class="cta-btn" href="https://github.com/verticalrectangle/silvertune-web/releases/latest/download/silvertune-companion-linux" download>Linux</a>
+      <a class="cta-btn" href="https://github.com/verticalrectangle/silvertune-web/releases/latest/download/silvertune-companion-macos" download>macOS</a>
+      <a class="cta-btn" href="https://github.com/verticalrectangle/silvertune-web/releases/latest/download/silvertune-companion-windows.exe" download>Windows</a>
+    </div>
+    <p class="cta-sub">run the companion app · open the browser · zero config</p>
+  </div>
 </div>
 
 <div id="xmb">

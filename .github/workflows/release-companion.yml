@@ -1,0 +1,122 @@
+name: Release Companion
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag (e.g. companion-v0.1.0)'
+        required: true
+        default: 'companion-v0.1.0'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-22.04
+            artifact: silvertune-companion-linux
+            binary: companion/target/release/silvertune-companion
+          - os: windows-latest
+            artifact: silvertune-companion-windows.exe
+            binary: companion/target/release/silvertune-companion.exe
+          - os: macos-latest
+            artifact: silvertune-companion-macos
+            binary: companion/target/release/silvertune-companion
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Linux system deps
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libssl-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            libasound2-dev \
+            pkg-config
+
+      - name: Install Tauri CLI
+        run: cargo install tauri-cli --version "^2.0" --locked
+
+      - name: Build macOS universal binary
+        if: runner.os == 'macOS'
+        run: |
+          rustup target add x86_64-apple-darwin aarch64-apple-darwin
+          cd companion
+          cargo tauri build --target universal-apple-darwin --ci
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ""
+
+      - name: Build (Linux / Windows)
+        if: runner.os != 'macOS'
+        run: |
+          cd companion
+          cargo tauri build --ci
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ""
+
+      - name: Locate macOS binary
+        if: runner.os == 'macOS'
+        run: |
+          cp companion/target/universal-apple-darwin/release/silvertune-companion companion/target/release/silvertune-companion || true
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: ${{ matrix.binary }}
+
+  release:
+    needs: build
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event.inputs.tag }}
+          name: Silvertune Companion ${{ github.event.inputs.tag }}
+          body: |
+            ## Silvertune Companion
+
+            Native low-latency audio bridge for [silvertune.live](https://silvertune.live).
+
+            Download the binary for your platform, run it, then open the web app — it will detect the companion automatically and switch to native audio mode (~5ms latency).
+
+            ### Install
+
+            **Linux**
+            ```bash
+            chmod +x silvertune-companion-linux
+            ./silvertune-companion-linux
+            ```
+
+            **macOS**
+            ```bash
+            chmod +x silvertune-companion-macos
+            ./silvertune-companion-macos
+            ```
+
+            **Windows** — download `silvertune-companion-windows.exe` and run it.
+
+            The companion runs as a system tray app. Open silvertune.live in your browser and the "⬡ companion" badge will appear when connected.
+          files: |
+            artifacts/silvertune-companion-linux/silvertune-companion
+            artifacts/silvertune-companion-macos/silvertune-companion
+            artifacts/silvertune-companion-windows.exe/silvertune-companion.exe
+          fail_on_unmatched_files: false

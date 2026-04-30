@@ -2,6 +2,9 @@
   "productName": "Silvertune Companion",
   "version": "0.1.0",
   "identifier": "live.silvertune.companion",
+  "build": {
+    "frontendDist": "dist"
+  },
   "app": {
     "windows": [],
     "security": { "csp": null }
