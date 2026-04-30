@@ -610,7 +610,15 @@ function probeCompanion() {
     const timer = setTimeout(() => { try { ws.close(); } catch(_){} resolve(false); }, 600);
     let ws;
     try { ws = new WebSocket(COMPANION_URL); } catch(_) { clearTimeout(timer); resolve(false); return; }
-    ws.onopen = () => { clearTimeout(timer); companionWs = ws; attachCompanionHandlers(ws); resolve(true); };
+    ws.onopen = () => {
+      clearTimeout(timer);
+      companionWs = ws;
+      attachCompanionHandlers(ws);
+      // Silence WebAudio if it was already running
+      if (actx) actx.suspend();
+      if (workletNode) workletNode.disconnect();
+      resolve(true);
+    };
     ws.onerror = () => { clearTimeout(timer); resolve(false); };
   });
 }
@@ -622,6 +630,8 @@ function attachCompanionHandlers(ws) {
   };
   ws.onclose = () => {
     companionActive = false; companionWs = null; updateCompanionBadge(false);
+    // Resume WebAudio fallback if it was suspended
+    if (actx) { if (workletNode) workletNode.connect(actx.destination); actx.resume(); }
     setTimeout(async () => {
       if (!companionActive) { const ok = await probeCompanion(); if (ok) { companionActive = true; updateCompanionBadge(true); sendCompanionParams(); } }
     }, 5000);
