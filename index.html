@@ -647,10 +647,16 @@ function updateCompanionBadge(active) {
   let b = document.getElementById('companion-badge');
   if (!b) {
     b = document.createElement('div'); b.id = 'companion-badge';
-    b.style.cssText = 'position:fixed;bottom:22px;left:22px;z-index:10;font-size:9px;letter-spacing:0.2em;text-transform:uppercase;color:rgba(200,218,255,0.55);pointer-events:none;text-shadow:0 1px 2px rgba(0,0,0,0.8)';
+    b.style.cssText = 'position:fixed;bottom:22px;left:22px;z-index:10;font-size:9px;letter-spacing:0.2em;text-transform:uppercase;pointer-events:none;text-shadow:0 1px 2px rgba(0,0,0,0.8);display:flex;align-items:center;gap:6px;transition:color 0.4s';
     document.body.appendChild(b);
   }
-  b.textContent = active ? '⬡ companion' : '';
+  if (active) {
+    b.innerHTML = '<span style="width:6px;height:6px;border-radius:50%;background:#4cffaa;box-shadow:0 0 6px #4cffaa;flex-shrink:0"></span><span>COMPANION</span>';
+    b.style.color = 'rgba(200,255,220,0.85)';
+  } else {
+    b.innerHTML = '<span style="width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,0.2);flex-shrink:0"></span><span>NO COMPANION</span>';
+    b.style.color = 'rgba(255,255,255,0.25)';
+  }
 }
 
 // ─── Audio state ──────────────────────────────────────────────────────────────
