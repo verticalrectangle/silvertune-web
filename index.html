@@ -354,21 +354,24 @@ function rnd(a, b) { return a + Math.random() * (b - a); }
 // ─── Background blobs ────────────────────────────────────────────────────────
 let bgT = 0;
 const BG_BLOBS = [
-  { xf:0.28, yf:0.19, xa:0.36, ya:0.28, ph:0,   h:215, r:0.62 },
-  { xf:0.17, yf:0.31, xa:0.30, ya:0.34, ph:2.1, h:220, r:0.56 },
-  { xf:0.23, yf:0.24, xa:0.27, ya:0.26, ph:4.2, h:208, r:0.47 },
+  { xf:0.22, yf:0.17, xa:0.44, ya:0.38, ph:0.0, h:210, s:28, l:82, r:0.80 },
+  { xf:0.14, yf:0.29, xa:0.38, ya:0.44, ph:2.1, h:220, s:18, l:92, r:0.70 },
+  { xf:0.31, yf:0.21, xa:0.34, ya:0.32, ph:4.2, h:200, s:35, l:75, r:0.60 },
+  { xf:0.19, yf:0.36, xa:0.40, ya:0.30, ph:1.5, h:215, s:12, l:95, r:0.65 },
+  { xf:0.27, yf:0.13, xa:0.30, ya:0.42, ph:3.5, h:205, s:40, l:70, r:0.55 },
+  { xf:0.11, yf:0.25, xa:0.45, ya:0.35, ph:5.1, h:225, s:22, l:88, r:0.72 },
 ];
 function drawBg() {
-  bgT += 0.003;
+  bgT += 0.006;
   for (const b of BG_BLOBS) {
-    const bx = cx + Math.sin(bgT * b.xf + b.ph)     * W * b.xa;
-    const by = cy + Math.cos(bgT * b.yf + b.ph + 1) * H * b.ya;
-    const br = Math.min(W, H) * b.r * (1 + smoothAmp * 0.5);
-    const op = 0.055 + smoothAmp * 0.04;
+    const bx = cx + Math.sin(bgT * b.xf + b.ph)          * W * b.xa;
+    const by = cy + Math.cos(bgT * b.yf + b.ph + 1.3)    * H * b.ya;
+    const br = Math.min(W, H) * b.r * (1 + smoothAmp * 0.7);
+    const op = 0.20 + smoothAmp * 0.18;
     const g  = ctx.createRadialGradient(bx, by, 0, bx, by, br);
-    g.addColorStop(0,   `hsla(${b.h}, 22%, 72%, ${op})`);
-    g.addColorStop(0.55,`hsla(${b.h}, 16%, 60%, ${op * 0.45})`);
-    g.addColorStop(1,   `hsla(${b.h}, 10%, 50%, 0)`);
+    g.addColorStop(0,   `hsla(${b.h}, ${b.s}%,   ${b.l}%,   ${op})`);
+    g.addColorStop(0.45,`hsla(${b.h}, ${b.s*.7}%, ${b.l*.88}%, ${op * 0.55})`);
+    g.addColorStop(1,   `hsla(${b.h}, ${b.s*.3}%, ${b.l*.7}%,  0)`);
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, W, H);
   }
@@ -612,7 +615,7 @@ function render() {
   drawBg();
 
   // Trail fade toward dark
-  ctx.fillStyle = 'rgba(8, 10, 14, 0.17)';
+  ctx.fillStyle = 'rgba(8, 10, 14, 0.055)';
   ctx.fillRect(0, 0, W, H);
 
   if (FX.prism)   drawPrism();
