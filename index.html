@@ -420,7 +420,7 @@ body.minimal canvas { display: none; }
   <h1>SILVERTUNE</h1>
   <p class="tagline">Industry standard 100% FLOSS autotune.<br>Now in your browser.</p>
   <p class="sub">CLICK TO BEGIN &nbsp;·&nbsp; USE HEADPHONES</p>
-  <div id="companion-cta">
+  <div id="companion-cta" onclick="event.stopPropagation()">
     <p class="cta-label">experiencing latency?</p>
     <div class="cta-links">
       <a class="cta-btn" href="https://github.com/verticalrectangle/silvertune-web/releases/latest/download/silvertune-companion-linux" download>Linux</a>
@@ -429,7 +429,7 @@ body.minimal canvas { display: none; }
     </div>
     <p class="cta-sub">run the companion app · open the browser · zero config</p>
   </div>
-  <div id="plugin-cta">
+  <div id="plugin-cta" onclick="event.stopPropagation()">
     <p class="cta-label">use in your daw?</p>
     <div class="cta-links">
       <a class="cta-btn" href="https://github.com/epsilver/silvertune/releases/latest/download/silvertune-linux.zip" target="_blank" rel="noopener">Linux</a>
