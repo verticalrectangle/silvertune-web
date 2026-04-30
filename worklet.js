@@ -26,7 +26,7 @@ class GrainShifter {
     this.writePos  = 0;
     this.phaseA    = 0.0;
     this.phaseB    = 0.5;
-    this.grainSize = 512;
+    this.grainSize = 384;
   }
 
   process(input, pitchRatio) {
@@ -59,7 +59,7 @@ class SilvertuneProcessor extends AudioWorkletProcessor {
 
     this.YIN_BUF  = 512;
     this.YIN_HALF = 256;
-    this.YIN_HOP  = 128;
+    this.YIN_HOP  = 64;
     this.yinBuf   = new Float32Array(512);
     this.diff     = new Float32Array(256);
     this.yinPos   = 0;
