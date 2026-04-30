@@ -573,6 +573,7 @@ function inScale(s) {
 let rawNote    = -1;  // detected note (mod 12)
 let pianoGlow  = 0;   // flash on note change
 let arcPhase   = 0;   // animates correction arc
+let pianoCache = null, pianoCacheKey = '';
 
 function pianoLayout() {
   const wkw = Math.min(46, Math.floor(W / 14));
@@ -596,6 +597,103 @@ function keyX(s, oct, L) {
   return WK.includes(s) ? wkX(s, oct, L) : bkX(s, oct, L);
 }
 
+function drawWhiteKey(c2d, note, x, y0, wkw, wkh, state, glow) {
+  const press = state === 'corrected' ? 3 : 0;
+  const wx = x + 1, wy = y0 + press, ww = wkw - 2, wh = wkh - press, wr = 3;
+  c2d.beginPath(); c2d.roundRect(wx, wy, ww, wh, [0, 0, wr, wr]);
+  if (state === 'corrected' || state === 'detected') {
+    const wg = c2d.createLinearGradient(wx, wy, wx, wy + wh);
+    if (state === 'corrected') {
+      const g0 = 0.96 + glow * 0.04;
+      wg.addColorStop(0,    `rgba(255,255,255,${g0})`);
+      wg.addColorStop(0.04, `rgba(248,246,240,${g0})`);
+      wg.addColorStop(0.45, 'rgba(228,224,215,0.98)');
+      wg.addColorStop(0.85, 'rgba(205,200,190,0.99)');
+      wg.addColorStop(1,    'rgba(185,180,170,0.99)');
+    } else {
+      wg.addColorStop(0,    'rgba(200,218,245,0.97)');
+      wg.addColorStop(0.04, 'rgba(185,206,238,0.95)');
+      wg.addColorStop(0.45, 'rgba(130,162,210,0.95)');
+      wg.addColorStop(1,    'rgba(90,125,180,0.97)');
+    }
+    c2d.fillStyle = wg;
+  } else {
+    c2d.fillStyle = 'rgba(210,207,198,0.91)';
+  }
+  c2d.fill();
+  c2d.beginPath(); c2d.roundRect(wx, wy, ww, Math.round(wh * 0.06), [0, 0, 0, 0]);
+  c2d.fillStyle = 'rgba(255,255,255,0.55)'; c2d.fill();
+  c2d.lineWidth = 1;
+  c2d.strokeStyle = 'rgba(255,255,255,0.5)';
+  c2d.beginPath(); c2d.moveTo(wx, wy + wh); c2d.lineTo(wx, wy); c2d.lineTo(wx + ww, wy); c2d.stroke();
+  c2d.strokeStyle = 'rgba(30,26,20,0.45)';
+  c2d.beginPath(); c2d.moveTo(wx + ww, wy); c2d.lineTo(wx + ww, wy + wh); c2d.lineTo(wx, wy + wh); c2d.stroke();
+  c2d.beginPath(); c2d.roundRect(wx, wy, ww, wh, [0, 0, wr, wr]);
+  c2d.strokeStyle = 'rgba(80,70,55,0.25)'; c2d.stroke();
+}
+
+function drawBlackKey(c2d, note, x, y0, bkw, bkh, state, glow) {
+  const press = state === 'corrected' ? 3 : 0;
+  const bx = x, by = y0 + press, bw = bkw, bh = bkh - press, br = 2;
+  c2d.beginPath(); c2d.roundRect(bx, by, bw, bh, [0, 0, br, br]);
+  if (state === 'corrected' || state === 'detected') {
+    const bg = c2d.createLinearGradient(bx, by, bx, by + bh);
+    if (state === 'corrected') {
+      const g0 = 0.96 + glow * 0.04;
+      bg.addColorStop(0,    `rgba(230,236,248,${g0})`);
+      bg.addColorStop(0.06, `rgba(195,206,226,${g0})`);
+      bg.addColorStop(0.4,  'rgba(140,152,172,0.97)');
+      bg.addColorStop(1,    'rgba(90,100,116,0.98)');
+    } else {
+      bg.addColorStop(0,    'rgba(110,148,208,0.99)');
+      bg.addColorStop(0.06, 'rgba(80,120,192,0.98)');
+      bg.addColorStop(0.4,  'rgba(48,82,150,0.98)');
+      bg.addColorStop(1,    'rgba(22,44,105,0.99)');
+    }
+    c2d.fillStyle = bg;
+  } else {
+    c2d.fillStyle = 'rgba(20,22,28,1.0)';
+  }
+  c2d.fill();
+  c2d.beginPath(); c2d.roundRect(bx + 1, by + 1, bw - 2, Math.round(bh * 0.30), [0, 0, 0, 0]);
+  c2d.fillStyle = 'rgba(255,255,255,0.10)'; c2d.fill();
+  c2d.lineWidth = 1;
+  c2d.strokeStyle = 'rgba(255,255,255,0.18)';
+  c2d.beginPath(); c2d.moveTo(bx, by + bh); c2d.lineTo(bx, by); c2d.lineTo(bx + bw, by); c2d.stroke();
+  c2d.strokeStyle = 'rgba(0,0,0,0.75)';
+  c2d.beginPath(); c2d.moveTo(bx + bw, by); c2d.lineTo(bx + bw, by + bh); c2d.lineTo(bx, by + bh); c2d.stroke();
+}
+
+function buildPianoCache(L) {
+  const { wkw, wkh, bkw, bkh, x0, y0 } = L;
+  const oc = new OffscreenCanvas(W, H);
+  const oc2 = oc.getContext('2d');
+  const wFont = `bold ${Math.max(9, Math.round(wkw * 0.28))}px sans-serif`;
+  const bFont = `bold ${Math.max(7, Math.round(wkw * 0.20))}px sans-serif`;
+  oc2.textAlign = 'center';
+  for (let oct = 0; oct < 2; oct++) {
+    for (let wi = 0; wi < 7; wi++) {
+      const note = WK[wi];
+      const x = x0 + (oct * 7 + wi) * wkw;
+      drawWhiteKey(oc2, note, x, y0, wkw, wkh, 'normal', 0);
+      if (!inScale(note)) { oc2.fillStyle = 'rgba(8,10,16,0.52)'; oc2.fillRect(x+1, y0, wkw-2, wkh); }
+      oc2.font = wFont; oc2.fillStyle = 'rgba(255,255,255,0.55)';
+      oc2.fillText(KEYS[note], x + wkw / 2, y0 + wkh - 6);
+    }
+  }
+  for (let oct = 0; oct < 2; oct++) {
+    for (let bi = 0; bi < 5; bi++) {
+      const note = BK[bi];
+      const x = x0 + (oct * 7 + BX[bi]) * wkw - bkw / 2;
+      drawBlackKey(oc2, note, x, y0, bkw, bkh, 'normal', 0);
+      if (!inScale(note)) { oc2.fillStyle = 'rgba(8,10,16,0.58)'; oc2.fillRect(x, y0, bkw, bkh); }
+      oc2.font = bFont; oc2.fillStyle = 'rgba(255,255,255,0.62)';
+      oc2.fillText(KEYS[note], x + bkw / 2, y0 + bkh - 5);
+    }
+  }
+  return oc;
+}
+
 function drawPiano() {
   pianoGlow = Math.max(0, pianoGlow - 0.018);
   arcPhase += 0.07;
@@ -604,77 +702,38 @@ function drawPiano() {
   const dn = rawNote;
   const cn = currentNote >= 0 ? currentNote : -1;
 
-  ctx.save();
+  // Rebuild static cache only on resize or scale/key change
+  const ck = `${W},${H},${scaleIdx},${keyIdx}`;
+  if (ck !== pianoCacheKey) { pianoCache = buildPianoCache(L); pianoCacheKey = ck; }
 
-  // White keys — fill, glow drip, scale lock overlay, labels
+  ctx.save();
+  ctx.drawImage(pianoCache, 0, 0);
+
+  // Active white keys (overwrite cached version)
+  const wFont = `bold ${Math.max(9, Math.round(wkw * 0.28))}px sans-serif`;
+  const bFont = `bold ${Math.max(7, Math.round(wkw * 0.20))}px sans-serif`;
+  ctx.textAlign = 'center';
   for (let oct = 0; oct < 2; oct++) {
     for (let wi = 0; wi < 7; wi++) {
       const note = WK[wi];
+      const isC = note === cn, isD = note === dn && note !== cn;
+      if (!isC && !isD) continue;
       const x = x0 + (oct * 7 + wi) * wkw;
-      const isC = note === cn;
-      const isD = note === dn && note !== cn;
-      const locked = !inScale(note) && !isC && !isD;
-      const press = isC ? 3 : 0;
-
-      const wx = x + 1, wy = y0 + press, ww = wkw - 2, wh = wkh - press;
-      const wr = 3; // bottom corner radius
-      ctx.beginPath(); ctx.roundRect(wx, wy, ww, wh, [0, 0, wr, wr]);
-      const wg = ctx.createLinearGradient(wx, wy, wx, wy + wh);
-      if (isC) {
-        const g0 = 0.96 + pianoGlow * 0.04;
-        wg.addColorStop(0,    `rgba(255,255,255,${g0})`);
-        wg.addColorStop(0.04, `rgba(248,246,240,${g0})`);
-        wg.addColorStop(0.45, `rgba(228,224,215,0.98)`);
-        wg.addColorStop(0.85, `rgba(205,200,190,0.99)`);
-        wg.addColorStop(1,    `rgba(185,180,170,0.99)`);
-      } else if (isD) {
-        wg.addColorStop(0,    'rgba(200,218,245,0.97)');
-        wg.addColorStop(0.04, 'rgba(185,206,238,0.95)');
-        wg.addColorStop(0.45, 'rgba(130,162,210,0.95)');
-        wg.addColorStop(1,    'rgba(90,125,180,0.97)');
-      } else {
-        wg.addColorStop(0,    'rgba(248,246,240,0.95)');
-        wg.addColorStop(0.04, 'rgba(236,233,226,0.92)');
-        wg.addColorStop(0.45, 'rgba(210,207,198,0.90)');
-        wg.addColorStop(0.85, 'rgba(188,185,175,0.90)');
-        wg.addColorStop(1,    'rgba(170,167,158,0.92)');
-      }
-      ctx.fillStyle = wg; ctx.fill();
-      // top highlight
-      ctx.beginPath(); ctx.roundRect(wx, wy, ww, Math.round(wh * 0.06), [0, 0, 0, 0]);
-      ctx.fillStyle = 'rgba(255,255,255,0.55)'; ctx.fill();
-      // bevel strokes
-      ctx.lineWidth = 1;
-      ctx.strokeStyle = 'rgba(255,255,255,0.5)';
-      ctx.beginPath(); ctx.moveTo(wx, wy + wh); ctx.lineTo(wx, wy); ctx.lineTo(wx + ww, wy); ctx.stroke();
-      ctx.strokeStyle = 'rgba(30,26,20,0.45)';
-      ctx.beginPath(); ctx.moveTo(wx + ww, wy); ctx.lineTo(wx + ww, wy + wh); ctx.lineTo(wx, wy + wh); ctx.stroke();
-      // outer border
-      ctx.beginPath(); ctx.roundRect(wx, wy, ww, wh, [0, 0, wr, wr]);
-      ctx.strokeStyle = 'rgba(80,70,55,0.25)'; ctx.stroke();
-
+      const state = isC ? 'corrected' : 'detected';
+      ctx.clearRect(x, y0, wkw, wkh + 4);
+      drawWhiteKey(ctx, note, x, y0, wkw, wkh, state, pianoGlow);
       if (isC) {
         const g = ctx.createLinearGradient(x, y0 + wkh * 0.5, x, y0 + wkh + 55);
         g.addColorStop(0, `rgba(255,255,255,${0.42 + pianoGlow * 0.3})`);
         g.addColorStop(1, 'rgba(255,255,255,0)');
         ctx.fillStyle = g; ctx.fillRect(x - 2, y0 + wkh * 0.5, wkw + 4, 55);
       }
-
-      // scale lock overlay
-      if (locked) {
-        ctx.fillStyle = 'rgba(8,10,16,0.52)';
-        ctx.fillRect(x + 1, y0, wkw - 2, wkh);
-      }
-
-      // note label
-      ctx.font = `bold ${Math.max(9, Math.round(wkw * 0.28))}px sans-serif`;
-      ctx.textAlign = 'center';
-      ctx.fillStyle = isC ? 'rgba(20,24,36,0.85)' : 'rgba(255,255,255,0.55)';
+      ctx.font = wFont; ctx.fillStyle = isC ? 'rgba(20,24,36,0.85)' : 'rgba(255,255,255,0.55)';
       ctx.fillText(KEYS[note], x + wkw / 2, y0 + wkh - 6);
     }
   }
 
-  // Correction arc (dashed curve above piano, animated)
+  // Correction arc
   if (dn >= 0 && cn >= 0 && dn !== cn) {
     let best = null, bestD = Infinity;
     for (let do_ = 0; do_ < 2; do_++) for (let co = 0; co < 2; co++) {
@@ -686,82 +745,33 @@ function drawPiano() {
     const ay = y0 - 14;
     const spread = Math.abs(cxi - dxi);
     const pulse = 0.55 + Math.sin(arcPhase) * 0.2;
-
     ctx.beginPath();
     ctx.moveTo(dxi, ay);
     ctx.quadraticCurveTo((dxi + cxi) / 2, ay - spread * 0.6 - 14, cxi, ay);
     ctx.strokeStyle = `rgba(255,255,255,${pulse})`;
     ctx.lineWidth = 1.5; ctx.setLineDash([5, 5]); ctx.stroke();
     ctx.setLineDash([]);
-
     const angle = Math.atan2(ay - (ay - spread * 0.6 - 14), cxi - (dxi + cxi) / 2);
     ctx.beginPath();
     ctx.moveTo(cxi, ay);
     ctx.lineTo(cxi - 7 * Math.cos(angle - 0.4), ay - 7 * Math.sin(angle - 0.4));
     ctx.lineTo(cxi - 7 * Math.cos(angle + 0.4), ay - 7 * Math.sin(angle + 0.4));
     ctx.closePath(); ctx.fillStyle = `rgba(255,255,255,${pulse})`; ctx.fill();
-
     ctx.beginPath(); ctx.arc(dxi, ay, 2.5, 0, Math.PI * 2);
     ctx.fillStyle = 'rgba(148,178,220,0.75)'; ctx.fill();
   }
 
-  // Black keys — fill, scale lock overlay, labels
+  // Active black keys (overwrite cached version)
   for (let oct = 0; oct < 2; oct++) {
     for (let bi = 0; bi < 5; bi++) {
       const note = BK[bi];
+      const isC = note === cn, isD = note === dn && note !== cn;
+      if (!isC && !isD) continue;
       const x = x0 + (oct * 7 + BX[bi]) * wkw - bkw / 2;
-      const isC = note === cn;
-      const isD = note === dn && note !== cn;
-      const locked = !inScale(note) && !isC && !isD;
-      const press = isC ? 3 : 0;
-
-      const bx2 = x, by2 = y0 + press, bw2 = bkw, bh2 = bkh - press;
-      const br = 2;
-      ctx.beginPath(); ctx.roundRect(bx2, by2, bw2, bh2, [0, 0, br, br]);
-      const bg = ctx.createLinearGradient(bx2, by2, bx2, by2 + bh2);
-      if (isC) {
-        const g0 = 0.96 + pianoGlow * 0.04;
-        bg.addColorStop(0,    `rgba(230,236,248,${g0})`);
-        bg.addColorStop(0.06, `rgba(195,206,226,${g0})`);
-        bg.addColorStop(0.4,  'rgba(140,152,172,0.97)');
-        bg.addColorStop(1,    'rgba(90,100,116,0.98)');
-      } else if (isD) {
-        bg.addColorStop(0,    'rgba(110,148,208,0.99)');
-        bg.addColorStop(0.06, 'rgba(80,120,192,0.98)');
-        bg.addColorStop(0.4,  'rgba(48,82,150,0.98)');
-        bg.addColorStop(1,    'rgba(22,44,105,0.99)');
-      } else {
-        bg.addColorStop(0,    'rgba(72,78,92,1.0)');
-        bg.addColorStop(0.06, 'rgba(40,43,54,1.0)');
-        bg.addColorStop(0.4,  'rgba(18,20,27,1.0)');
-        bg.addColorStop(1,    'rgba(6,7,10,1.0)');
-      }
-      ctx.fillStyle = bg; ctx.fill();
-      // glass sheen across the top third
-      ctx.beginPath(); ctx.roundRect(bx2 + 1, by2 + 1, bw2 - 2, Math.round(bh2 * 0.30), [0, 0, 0, 0]);
-      const sh = ctx.createLinearGradient(bx2, by2, bx2, by2 + bh2 * 0.30);
-      sh.addColorStop(0,   'rgba(255,255,255,0.22)');
-      sh.addColorStop(0.5, 'rgba(255,255,255,0.08)');
-      sh.addColorStop(1,   'rgba(255,255,255,0.0)');
-      ctx.fillStyle = sh; ctx.fill();
-      // bevel
-      ctx.lineWidth = 1;
-      ctx.strokeStyle = 'rgba(255,255,255,0.18)';
-      ctx.beginPath(); ctx.moveTo(bx2, by2 + bh2); ctx.lineTo(bx2, by2); ctx.lineTo(bx2 + bw2, by2); ctx.stroke();
-      ctx.strokeStyle = 'rgba(0,0,0,0.75)';
-      ctx.beginPath(); ctx.moveTo(bx2 + bw2, by2); ctx.lineTo(bx2 + bw2, by2 + bh2); ctx.lineTo(bx2, by2 + bh2); ctx.stroke();
-
-      // scale lock overlay
-      if (locked) {
-        ctx.fillStyle = 'rgba(8,10,16,0.58)';
-        ctx.fillRect(x, y0, bkw, bkh);
-      }
-
-      // note label
-      const lblSz = Math.max(7, Math.round(wkw * 0.20));
-      ctx.font = `bold ${lblSz}px sans-serif`;
-      ctx.textAlign = 'center';
-      ctx.fillStyle = isC ? 'rgba(20,24,36,0.85)' : 'rgba(255,255,255,0.62)';
+      const state = isC ? 'corrected' : 'detected';
+      ctx.clearRect(x, y0, bkw, bkh + 4);
+      drawBlackKey(ctx, note, x, y0, bkw, bkh, state, pianoGlow);
+      ctx.font = bFont; ctx.fillStyle = isC ? 'rgba(20,24,36,0.85)' : 'rgba(255,255,255,0.62)';
       ctx.fillText(KEYS[note], x + bkw / 2, y0 + bkh - 5);
     }
   }
