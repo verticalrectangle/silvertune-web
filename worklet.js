@@ -162,7 +162,7 @@ class SilvertuneProcessor extends AudioWorkletProcessor {
 
         const wet = this.shifter.process(s, this.heldRatio);
         const dbl = this.doubler.process(s, this.heldRatio * DETUNE);
-        output[i] = wet * 0.8 + dbl * this.wide + s * 0.2;
+        output[i] = wet * 0.95 + dbl * this.wide + s * 0.05;
       }
     }
 
