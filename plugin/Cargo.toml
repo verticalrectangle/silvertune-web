@@ -1,0 +1,11 @@
+[package]
+name    = "silvertune-plugin"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+nih_plug        = { git = "https://github.com/robbert-vanden-berghe/nih-plug", features = ["assert_process_allocs"] }
+silvertune-dsp  = { path = "../silvertune-dsp" }
