@@ -88,7 +88,7 @@ fn run_audio(params: SharedParams, tx: Sender<PitchEvent>) {
                 for &sample in data {
                     // YIN
                     let new_pitch = yin.push(sample);
-                    if new_pitch && yin.pitch_hz > 0.0 && yin.confidence > 0.5 {
+                    if new_pitch && yin.pitch_hz > 50.0 && yin.pitch_hz < 2000.0 && yin.confidence > 0.5 {
                         let midi_f = crate::dsp::yin::hz_to_midi(yin.pitch_hz);
                         detected_note = midi_f.round() as i32;
                         corrected_note = scale::quantize(midi_f, key, scale_idx);
@@ -101,7 +101,7 @@ fn run_audio(params: SharedParams, tx: Sender<PitchEvent>) {
                             corrected_note,
                         );
                         let blended = 1.0 + (raw - 1.0) * tune as f64;
-                        blended
+                        blended.clamp(0.5, 2.0)
                     } else {
                         1.0
                     };
