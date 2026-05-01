@@ -1364,45 +1364,54 @@ document.getElementById('rec-cancel-btn').addEventListener('click', ()=>{
 document.getElementById('start').addEventListener('click', async () => {
   document.getElementById('start').remove();
 
-  // Try native companion first — if running, it handles all audio at OS latency
-  const hasCompanion = await probeCompanion();
-  if (hasCompanion) {
-    companionActive = true;
-    updateCompanionBadge(true);
-    sendCompanionParams();
+  try {
+    // Try native companion first — if running, it handles all audio at OS latency
+    const hasCompanion = await probeCompanion();
+    if (hasCompanion) {
+      companionActive = true;
+      updateCompanionBadge(true);
+      sendCompanionParams();
+      initOrbs(); initHexes(); initStarPtcls();
+      isRunning = true;
+      populateDevices();
+      return;
+    }
+
+    // Fallback: WebAudio path
+    // Try with ideal constraints first; fall back to plain audio:true if the
+    // browser or audio backend rejects the specific constraints (common on Linux).
+    let stream;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false, channelCount: 1 },
+        video: false,
+      });
+    } catch (_) {
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+    }
+
+    actx = new AudioContext({ latencyHint: 'interactive' });
+    console.log(`base: ${actx.baseLatency*1000|0}ms  output: ${actx.outputLatency*1000|0}ms  sr: ${actx.sampleRate}Hz`);
+    const source = actx.createMediaStreamSource(stream);
+    await actx.audioWorklet.addModule('worklet.js');
+    workletNode = new AudioWorkletNode(actx,'silvertune-processor',{
+      numberOfInputs:1, numberOfOutputs:1, outputChannelCount:[1],
+    });
+    workletNode.port.onmessage = onWorkletMsg;
+    sendParams();
+    audioDest = actx.createMediaStreamDestination();
+    source.connect(workletNode);
+    workletNode.connect(actx.destination);
+    workletNode.connect(audioDest);
     initOrbs(); initHexes(); initStarPtcls();
     isRunning = true;
     populateDevices();
-    return;
+  } catch (err) {
+    const el = document.createElement('div');
+    el.style.cssText = 'position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:#080a0e;color:#fff;font-family:inherit;text-align:center';
+    el.innerHTML = `<div style="font-size:11px;letter-spacing:0.2em;opacity:0.4">MICROPHONE ERROR</div><div style="font-size:11px;opacity:0.25;max-width:320px">${err.message||String(err)}</div><button onclick="location.reload()" style="margin-top:8px;padding:8px 24px;background:none;border:1px solid rgba(255,255,255,0.25);color:rgba(255,255,255,0.6);cursor:pointer;font-family:inherit;font-size:11px;letter-spacing:0.15em">RETRY</button>`;
+    document.body.appendChild(el);
   }
-
-  // Fallback: WebAudio path
-  const stream = await navigator.mediaDevices.getUserMedia({
-    audio: {
-      echoCancellation: false,
-      noiseSuppression: false,
-      autoGainControl: false,
-      latency: 0,
-      channelCount: 1,
-    },
-    video: false,
-  });
-  actx = new AudioContext({ latencyHint: 'interactive' });
-  console.log(`base: ${actx.baseLatency*1000|0}ms  output: ${actx.outputLatency*1000|0}ms  sr: ${actx.sampleRate}Hz`);
-  const source = actx.createMediaStreamSource(stream);
-  await actx.audioWorklet.addModule('worklet.js');
-  workletNode = new AudioWorkletNode(actx,'silvertune-processor',{
-    numberOfInputs:1, numberOfOutputs:1, outputChannelCount:[1],
-  });
-  workletNode.port.onmessage = onWorkletMsg;
-  sendParams();
-  audioDest = actx.createMediaStreamDestination();
-  source.connect(workletNode);
-  workletNode.connect(actx.destination);
-  workletNode.connect(audioDest);
-  initOrbs(); initHexes(); initStarPtcls();
-  isRunning = true;
-  populateDevices();
 });
 
 render();
