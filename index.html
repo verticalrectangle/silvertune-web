@@ -286,6 +286,10 @@ input[type=range]::-webkit-slider-thumb {
   background: none; transition: border-color 0.15s, color 0.15s;
 }
 .dl-btn:hover { border-color: rgba(255,255,255,0.7); color: #fff; }
+.setup-col { display:flex; flex-direction:column; gap:3px; min-width:160px; }
+.setup-os   { font-size:9px; letter-spacing:0.18em; text-transform:uppercase; color:rgba(255,255,255,0.35); margin-bottom:2px; }
+.setup-step { font-size:10px; font-family:monospace; color:rgba(255,255,255,0.55); letter-spacing:0; }
+.setup-note { font-size:9px; color:rgba(255,255,255,0.28); margin-top:3px; font-style:italic; letter-spacing:0; }
 
 /* ── Minimal toggle button ── */
 #btn-minimal {
@@ -523,18 +527,37 @@ body.minimal canvas { display: none; }
 
     <!-- DOWNLOADS panel -->
     <div id="sub-downloads" class="sub-panel">
-      <div class="sound-row">
-        <div class="s-ctl" style="flex-direction:column; align-items:flex-start; gap:6px;">
+      <div class="sound-row" style="align-items:flex-start; gap:32px;">
+        <div class="s-ctl" style="flex-direction:column; align-items:flex-start; gap:8px;">
           <label>Companion App &nbsp;·&nbsp; zero-latency bridge</label>
-          <div style="display:flex; gap:8px;">
+          <div style="display:flex; gap:8px; flex-wrap:wrap;">
             <a class="dl-btn" href="https://github.com/verticalrectangle/silvertune-web/releases/latest/download/silvertune-companion-linux" download>Linux</a>
             <a class="dl-btn" href="https://github.com/verticalrectangle/silvertune-web/releases/latest/download/silvertune-companion-macos" download>macOS</a>
             <a class="dl-btn" href="https://github.com/verticalrectangle/silvertune-web/releases/latest/download/silvertune-companion-windows.exe" download>Windows</a>
           </div>
+          <div style="display:flex; gap:24px; flex-wrap:wrap; margin-top:4px;">
+            <div class="setup-col">
+              <div class="setup-os">Linux</div>
+              <div class="setup-step">chmod +x silvertune-companion-linux</div>
+              <div class="setup-step">./silvertune-companion-linux</div>
+              <div class="setup-note">disable mic monitoring in pavucontrol if you hear yourself dry</div>
+            </div>
+            <div class="setup-col">
+              <div class="setup-os">macOS</div>
+              <div class="setup-step">right-click → Open (bypasses Gatekeeper)</div>
+              <div class="setup-step">allow mic access when prompted</div>
+            </div>
+            <div class="setup-col">
+              <div class="setup-os">Windows</div>
+              <div class="setup-step">run silvertune-companion-windows.exe</div>
+              <div class="setup-step">More info → Run anyway (SmartScreen)</div>
+              <div class="setup-step">allow mic access when prompted</div>
+            </div>
+          </div>
         </div>
-        <div class="s-ctl" style="flex-direction:column; align-items:flex-start; gap:6px;">
+        <div class="s-ctl" style="flex-direction:column; align-items:flex-start; gap:8px;">
           <label>DAW Plugin &nbsp;·&nbsp; CLAP · VST3 · AUv2</label>
-          <div style="display:flex; gap:8px;">
+          <div style="display:flex; gap:8px; flex-wrap:wrap;">
             <a class="dl-btn" href="https://github.com/epsilver/silvertune/releases/latest/download/silvertune-linux.zip" target="_blank" rel="noopener">Linux</a>
             <a class="dl-btn" href="https://github.com/epsilver/silvertune/releases/latest/download/silvertune-macos.zip" target="_blank" rel="noopener">macOS</a>
             <a class="dl-btn" href="https://github.com/epsilver/silvertune/releases/latest/download/silvertune-windows.zip" target="_blank" rel="noopener">Windows</a>
