@@ -925,7 +925,7 @@ function buildPianoCache(L) {
     const note = BK[bi];
     const x = x0 + BX[bi] * wkw - bkw / 2;
     drawBlackKey(oc2, note, x, y0, bkw, bkh, 'normal', 0);
-    if (!inScale(note)) { oc2.fillStyle = 'rgba(8,10,16,0.58)'; oc2.fillRect(x, y0, bkw, bkh); }
+    if (!inScale(note)) { oc2.fillStyle = 'rgba(255,255,255,0.28)'; oc2.fillRect(x, y0, bkw, bkh); }
     oc2.font = bFont; oc2.fillStyle = 'rgba(255,255,255,0.62)';
     oc2.fillText(KEYS[note], x + bkw / 2, y0 + bkh - 5);
   }
