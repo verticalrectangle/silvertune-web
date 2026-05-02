@@ -173,6 +173,7 @@ int main()
         }
         std::printf("Browser connected\n");
         std::fflush(stdout);
+        ws.send("{\"type\":\"version\",\"v\":\"0.2.0\"}");
 
         while (ws.connected()) {
             // Send pitch report if ready
