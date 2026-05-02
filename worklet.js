@@ -24,23 +24,21 @@ class GrainShifter {
     this.MASK = 4095;
     this.buf       = new Float32Array(4096);
     this.writePos  = 0;
-    this.phases    = [0.0, 1/3, 2/3]; // 3-tap: sum of Hann = 1.5, divide out below
-    this.grainSize = 128;
+    this.phaseA    = 0.0;
+    this.phaseB    = 0.5;  // 2-tap: sum of Hann at 0.5 offset = 1.0, no normalisation needed
+    this.grainSize = 256;
   }
 
-  resetPhases() { this.phases = [0.0, 1/3, 2/3]; }
+  resetPhases() { this.phaseA = 0.0; this.phaseB = 0.5; }
 
   process(input, pitchRatio) {
     this.buf[this.writePos & this.MASK] = input;
     this.writePos++;
     const inc = (1.0 - pitchRatio) / this.grainSize;
-    let out = 0;
-    for (let i = 0; i < 3; i++) {
-      this.phases[i] += inc;
-      this.phases[i] -= Math.floor(this.phases[i]);
-      out += this._read(this.phases[i] * this.grainSize + 2.0) * this._hann(this.phases[i]);
-    }
-    return out * (2 / 3); // normalise: 3 Hann windows at 1/3 offset sum to 1.5
+    this.phaseA += inc; this.phaseA -= Math.floor(this.phaseA);
+    this.phaseB += inc; this.phaseB -= Math.floor(this.phaseB);
+    return this._read(this.phaseA * this.grainSize + 2.0) * this._hann(this.phaseA)
+         + this._read(this.phaseB * this.grainSize + 2.0) * this._hann(this.phaseB);
   }
 
   _read(delay) {

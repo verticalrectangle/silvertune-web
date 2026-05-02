@@ -7,39 +7,39 @@
 #define M_PI 3.14159265358979323846
 #endif
 
-// 3-tap grain shifter — matches worklet.js exactly
+// 2-tap grain shifter — matches plugin exactly
 class GrainShifter {
 public:
     static constexpr uint32_t BUF  = 4096;
     static constexpr uint32_t MASK = BUF - 1;
-    static constexpr double   GRAIN = 128.0;
+    static constexpr double   GRAIN = 256.0;
 
     GrainShifter() : write_(0) {
         for (auto& s : buf_) s = 0.0f;
-        phases_[0] = 0.0; phases_[1] = 1.0/3.0; phases_[2] = 2.0/3.0;
+        phase_a_ = 0.0; phase_b_ = 0.5;
     }
 
     void reset_phases() {
-        phases_[0] = 0.0; phases_[1] = 1.0/3.0; phases_[2] = 2.0/3.0;
+        phase_a_ = 0.0; phase_b_ = 0.5;
     }
 
     float process(float in, double ratio) {
         buf_[write_ & MASK] = in;
         ++write_;
         const double inc = (1.0 - ratio) / GRAIN;
-        float out = 0.0f;
-        for (int i = 0; i < 3; ++i) {
-            phases_[i] += inc;
-            phases_[i] -= std::floor(phases_[i]);
-            out += lerp(phases_[i] * GRAIN + 2.0) * hann(phases_[i]);
-        }
-        return out * (2.0f / 3.0f);
+
+        phase_a_ += inc; phase_a_ -= std::floor(phase_a_);
+        phase_b_ += inc; phase_b_ -= std::floor(phase_b_);
+
+        float sa = lerp(phase_a_ * GRAIN + 2.0) * hann(phase_a_);
+        float sb = lerp(phase_b_ * GRAIN + 2.0) * hann(phase_b_);
+        return sa + sb;
     }
 
 private:
     float    buf_[BUF];
     uint32_t write_;
-    double   phases_[3];
+    double   phase_a_, phase_b_;
 
     float lerp(double delay) const {
         double rp = (double)write_ - delay;
