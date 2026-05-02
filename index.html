@@ -791,10 +791,12 @@ function attachCompanionHandlers(ws) {
 
 function sendCompanionParams() {
   if (companionWs?.readyState === WebSocket.OPEN)
-    companionWs.send(JSON.stringify({ type:'params', key:keyIdx, scale:scaleIdx, tune, wide, gain, volume }));
+    companionWs.send(JSON.stringify({ type:'params', key:keyIdx, scale:scaleIdx, tune, wide, gain, volume,
+      formantOn: formantOn ? 1 : 0, vibratoOn: vibratoOn ? 1 : 0, chordOn: chordOn ? 1 : 0 }));
 }
 
 function updateCompanionBadge(active, outdated) {
+  updateAudioFxAvailability();
   let b = document.getElementById('companion-badge');
   if (!b) {
     b = document.createElement('div'); b.id = 'companion-badge';
@@ -812,6 +814,9 @@ function updateCompanionBadge(active, outdated) {
     b.style.color = 'rgba(255,255,255,0.25)';
   }
 }
+
+// ─── Audio feature toggles ────────────────────────────────────────────────────
+let formantOn = false, vibratoOn = false, chordOn = false;
 
 // ─── Audio state ──────────────────────────────────────────────────────────────
 let workletNode, actx, audioDest;
@@ -844,6 +849,49 @@ FX_DEFS.forEach((def, i) => {
   el.addEventListener('mouseenter', () => { xmbFxSel = i; });
   subFx.appendChild(el);
 });
+
+// Build audio feature toggles
+const AUDIO_FX_DEFS = [
+  { key:'formant', label:'Formant', icon:'♒' },
+  { key:'vibrato', label:'Vibrato', icon:'〜' },
+  { key:'chord',   label:'Chord',   icon:'♬' },
+];
+const audioFxState = { formant: false, vibrato: false, chord: false };
+
+function sendAudioFx() {
+  formantOn = audioFxState.formant;
+  vibratoOn = audioFxState.vibrato;
+  chordOn   = audioFxState.chord;
+  if (workletNode) {
+    workletNode.port.postMessage({ formantOn, vibratoOn, chordOn });
+  }
+  sendCompanionParams();
+}
+
+const sep = document.createElement('div');
+sep.style.cssText = 'width:1px;height:60px;background:rgba(255,255,255,0.08);align-self:center;margin:0 4px;flex-shrink:0';
+subFx.appendChild(sep);
+
+const audioFxEls = {};
+AUDIO_FX_DEFS.forEach(def => {
+  const el = document.createElement('div');
+  el.className = 'xitem';
+  el.innerHTML = `<div class="xitem-icon">${def.icon}</div><div class="xitem-label">${def.label}</div>`;
+  el.addEventListener('click', () => {
+    if (!companionActive && !workletNode) return;
+    audioFxState[def.key] = !audioFxState[def.key];
+    el.classList.toggle('on', audioFxState[def.key]);
+    sendAudioFx();
+  });
+  el.style.opacity = '0.35';
+  audioFxEls[def.key] = el;
+  subFx.appendChild(el);
+});
+
+function updateAudioFxAvailability() {
+  const avail = companionActive || !!workletNode;
+  Object.values(audioFxEls).forEach(el => { el.style.opacity = avail ? '' : '0.35'; });
+}
 
 // Category switching
 const CAT_PANELS = ['sub-fx','sub-sound','sub-rec','sub-settings','sub-downloads'];
@@ -1558,6 +1606,8 @@ document.getElementById('btn-try').addEventListener('click', async () => {
   });
   workletNode.port.onmessage = onWorkletMsg;
   sendParams();
+  workletNode.port.postMessage({ formantOn, vibratoOn, chordOn });
+  updateAudioFxAvailability();
   audioDest = actx.createMediaStreamDestination();
   source.connect(workletNode);
   workletNode.connect(actx.destination);

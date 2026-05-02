@@ -69,13 +69,89 @@ static void setup_signals() { signal(SIGTERM, sig_handler); signal(SIGINT, sig_h
 static constexpr double DETUNE = 1.00463;
 static constexpr uint16_t WS_PORT = 2747;
 
+class FormantPreserver {
+public:
+    static constexpr int ORDER = 16;
+    static constexpr int WIN   = 512;
+    static constexpr int HOP   = 128;
+
+    void reset() {
+        memset(win_buf_, 0, sizeof(win_buf_));
+        memset(a_,       0, sizeof(a_));
+        memset(x_mem_,   0, sizeof(x_mem_));
+        memset(y_mem_,   0, sizeof(y_mem_));
+        win_pos_   = 0;
+        hop_count_ = 0;
+    }
+
+    float analyze(float x) {
+        win_buf_[win_pos_] = x;
+        win_pos_ = (win_pos_ + 1) & (WIN - 1);
+        if (++hop_count_ >= HOP) { hop_count_ = 0; update_lpc(); }
+        float e = x;
+        for (int k = 0; k < ORDER; ++k) e += a_[k] * x_mem_[k];
+        for (int k = ORDER - 1; k > 0; --k) x_mem_[k] = x_mem_[k - 1];
+        x_mem_[0] = x;
+        return e;
+    }
+
+    float synthesize(float e) {
+        float y = e;
+        for (int k = 0; k < ORDER; ++k) y -= a_[k] * y_mem_[k];
+        for (int k = ORDER - 1; k > 0; --k) y_mem_[k] = y_mem_[k - 1];
+        y_mem_[0] = y;
+        return y;
+    }
+
+private:
+    float win_buf_[WIN] = {};
+    int   win_pos_      = 0;
+    int   hop_count_    = 0;
+    float a_[ORDER]     = {};
+    float x_mem_[ORDER] = {};
+    float y_mem_[ORDER] = {};
+
+    void update_lpc() {
+        float r[ORDER + 1] = {};
+        for (int lag = 0; lag <= ORDER; ++lag) {
+            float sum = 0.0f;
+            for (int i = lag; i < WIN; ++i) {
+                int i0 = (win_pos_ + WIN - 1 - i) & (WIN - 1);
+                int i1 = (win_pos_ + WIN - 1 - i - lag + WIN * 2) & (WIN - 1);
+                sum += win_buf_[i0] * win_buf_[i1];
+            }
+            r[lag] = sum;
+        }
+        if (r[0] < 1e-10f) { memset(a_, 0, sizeof(a_)); return; }
+        float tmp[ORDER] = {};
+        float E = r[0];
+        for (int m = 0; m < ORDER; ++m) {
+            float km_num = -r[m + 1];
+            for (int j = 0; j < m; ++j) km_num -= tmp[j] * r[m - j];
+            float km = km_num / E;
+            if (km >  0.9999f) km =  0.9999f;
+            if (km < -0.9999f) km = -0.9999f;
+            float new_tmp[ORDER];
+            for (int j = 0; j < m; ++j) new_tmp[j] = tmp[j] + km * tmp[m - 1 - j];
+            new_tmp[m] = km;
+            for (int j = 0; j <= m; ++j) tmp[j] = new_tmp[j];
+            E *= (1.0f - km * km);
+            if (E < 1e-20f) break;
+        }
+        memcpy(a_, tmp, sizeof(a_));
+    }
+};
+
 struct Params {
-    int    key       = 0;
-    int    scale     = 1;
-    double tune      = 1.0;
-    double wide      = 0.0;
-    double gain      = 1.0;
-    double volume    = 1.0;
+    int    key        = 0;
+    int    scale      = 1;
+    double tune       = 1.0;
+    double wide       = 0.0;
+    double gain       = 1.0;
+    double volume     = 1.0;
+    bool   formant_on = false;
+    bool   vibrato_on = false;
+    bool   chord_on   = false;
 };
 
 struct PitchReport {
@@ -96,6 +172,11 @@ static std::atomic<bool> g_report_ready{false};
 static YinDetector  g_yin;
 static GrainShifter g_wet;
 static GrainShifter g_dbl;
+static GrainShifter g_chord1;
+static GrainShifter g_chord1_dbl;
+static GrainShifter g_chord2;
+static GrainShifter g_chord2_dbl;
+static FormantPreserver g_formant;
 
 static double g_held_ratio    = 1.0;
 static double g_current_ratio = 1.0;
@@ -103,6 +184,12 @@ static double g_locked_midi  = -1.0;
 static int    g_low_conf     = 0;
 static int    g_det_note     = -1;
 static int    g_corr_note    = -1;
+
+static double g_held_chord1    = 1.0;
+static double g_current_chord1 = 1.0;
+static double g_held_chord2    = 1.0;
+static double g_current_chord2 = 1.0;
+static float  g_vibrato_lp_hz  = 0.0f;
 
 static float   g_rms_acc    = 0.0f;
 static uint32_t g_rms_count = 0;
@@ -148,10 +235,21 @@ static void audio_callback(ma_device* /*dev*/, void* out_buf, const void* in_buf
             g_yin.run_detect();
             float hz   = g_yin.pitch_hz;
             float conf = g_yin.confidence;
+
+            if (hz > 20.0f) {
+                float vib_ref = (g_vibrato_lp_hz > 0.0f) ? g_vibrato_lp_hz : hz;
+                float vib_diff_cents = std::fabs(hz_to_midi(hz) - hz_to_midi(vib_ref)) * 100.0f;
+                if (vib_diff_cents > 80.0f)
+                    g_vibrato_lp_hz = hz;
+                else
+                    g_vibrato_lp_hz += 0.2f * (hz - g_vibrato_lp_hz);
+            }
+            float use_hz = (p.vibrato_on && g_vibrato_lp_hz > 0.0f) ? g_vibrato_lp_hz : hz;
+
             if (p.tune < 0.01) {
                 g_held_ratio = 1.0;
-            } else if (hz > 80.0f && hz < 2000.0f && conf > 0.5f) {
-                double det_midi    = hz_to_midi(hz);
+            } else if (use_hz > 80.0f && use_hz < 2000.0f && conf > 0.5f) {
+                double det_midi    = hz_to_midi(use_hz);
                 bool stays_locked  = g_locked_midi >= 0.0 &&
                                      std::fabs(det_midi - g_locked_midi) < 0.4;
                 if (!stays_locked) g_locked_midi = det_midi;
@@ -159,17 +257,27 @@ static void audio_callback(ma_device* /*dev*/, void* out_buf, const void* in_buf
                 int    det_round = (int)std::round(g_locked_midi);
                 double corr      = quantize_to_scale(det_round, p.key, p.scale);
                 int    corr_int  = (int)std::round(corr);
-                double ratio     = midi_to_hz(corr_int) / (double)hz;
+                double ratio     = midi_to_hz(corr_int) / (double)use_hz;
                 ratio = 1.0 + (ratio - 1.0) * p.tune;
                 g_held_ratio = std::max(0.5, std::min(2.0, ratio));
                 g_det_note   = (int)std::round(det_midi);
                 g_corr_note  = corr_int;
+                if (p.chord_on) {
+                    float c1_hz = midi_to_hz(corr_int + 7.0f);
+                    float c2_hz = midi_to_hz(corr_int - 5.0f);
+                    g_held_chord1 = std::max(0.5, std::min(2.0, (double)(c1_hz / use_hz)));
+                    g_held_chord2 = std::max(0.5, std::min(2.0, (double)(c2_hz / use_hz)));
+                }
             } else if (conf < 0.35f) {
                 if (++g_low_conf >= 3) {
-                    g_locked_midi   = -1.0;
-                    g_low_conf      = 0;
-                    g_held_ratio    = 1.0;
-                    g_current_ratio = 1.0;
+                    g_locked_midi    = -1.0;
+                    g_low_conf       = 0;
+                    g_held_ratio     = 1.0;
+                    g_current_ratio  = 1.0;
+                    g_held_chord1    = 1.0;
+                    g_current_chord1 = 1.0;
+                    g_held_chord2    = 1.0;
+                    g_current_chord2 = 1.0;
                 }
             }
         }
@@ -184,11 +292,29 @@ static void audio_callback(ma_device* /*dev*/, void* out_buf, const void* in_buf
         g_rms_count++;
 
         float chase_coeff = ((float)p.tune >= 1.0f) ? 1.0f : (float)(p.tune * p.tune * 0.03);
-        g_current_ratio += (g_held_ratio - g_current_ratio) * chase_coeff;
+        g_current_ratio  += (g_held_ratio  - g_current_ratio)  * chase_coeff;
+        g_current_chord1 += (g_held_chord1 - g_current_chord1) * chase_coeff;
+        g_current_chord2 += (g_held_chord2 - g_current_chord2) * chase_coeff;
 
-        float wet = g_wet.process(s, g_current_ratio);
-        float dbl = g_dbl.process(s, g_current_ratio * (float)DETUNE);
-        float processed = (wet + dbl * (float)p.wide) * (float)p.volume;
+        float src = p.formant_on ? g_formant.analyze(s) : s;
+        float wet = g_wet.process(src, g_current_ratio);
+        float dbl = g_dbl.process(src, g_current_ratio * (float)DETUNE);
+        float out_s = wet + dbl * (float)p.wide;
+        if (p.formant_on) out_s = g_formant.synthesize(out_s);
+        if (p.chord_on) {
+            float c1  = g_chord1.process(src, (float)g_current_chord1);
+            float c1d = g_chord1_dbl.process(src, (float)g_current_chord1 * (float)DETUNE);
+            float c2  = g_chord2.process(src, (float)g_current_chord2);
+            float c2d = g_chord2_dbl.process(src, (float)g_current_chord2 * (float)DETUNE);
+            float c1out = c1 + c1d * (float)p.wide;
+            float c2out = c2 + c2d * (float)p.wide;
+            if (p.formant_on) {
+                c1out = g_formant.synthesize(c1out);
+                c2out = g_formant.synthesize(c2out);
+            }
+            out_s = out_s * 0.6f + c1out * 0.25f + c2out * 0.25f;
+        }
+        float processed = out_s * (float)p.volume;
         out[i] = (processed * g_gate_gain) + (s * (float)p.volume * (1.0f - g_gate_gain));
 
         ++g_post_counter;
@@ -297,6 +423,14 @@ int main()
                 g_params.wide   = json_num(msg, "wide",   g_params.wide);
                 g_params.gain   = json_num(msg, "gain",   g_params.gain);
                 g_params.volume = json_num(msg, "volume", g_params.volume);
+                {
+                    double fn = json_num(msg, "formantOn", -1.0);
+                    if (fn >= 0.0) g_params.formant_on = fn > 0.5;
+                    double vn = json_num(msg, "vibratoOn", -1.0);
+                    if (vn >= 0.0) g_params.vibrato_on = vn > 0.5;
+                    double cn = json_num(msg, "chordOn", -1.0);
+                    if (cn >= 0.0) g_params.chord_on = cn > 0.5;
+                }
             }
 
             std::this_thread::sleep_for(std::chrono::microseconds(500));
