@@ -80,14 +80,20 @@ public:
         memset(a_,       0, sizeof(a_));
         memset(x_mem_,   0, sizeof(x_mem_));
         memset(y_mem_,   0, sizeof(y_mem_));
-        win_pos_   = 0;
-        hop_count_ = 0;
+        win_pos_      = 0;
+        hop_count_    = 0;
+        samples_seen_ = 0;
     }
 
     float analyze(float x) {
         win_buf_[win_pos_] = x;
         win_pos_ = (win_pos_ + 1) & (WIN - 1);
-        if (++hop_count_ >= HOP) { hop_count_ = 0; update_lpc(); }
+        if (samples_seen_ < WIN) samples_seen_++;
+        if (++hop_count_ >= HOP) {
+            hop_count_ = 0;
+            if (samples_seen_ >= WIN) update_lpc();
+        }
+        if (samples_seen_ < WIN) return x;
         float e = x;
         for (int k = 0; k < ORDER; ++k) e += a_[k] * x_mem_[k];
         for (int k = ORDER - 1; k > 0; --k) x_mem_[k] = x_mem_[k - 1];
@@ -96,8 +102,10 @@ public:
     }
 
     float synthesize(float e) {
+        if (samples_seen_ < WIN) return e;
         float y = e;
         for (int k = 0; k < ORDER; ++k) y -= a_[k] * y_mem_[k];
+        if (!std::isfinite(y)) { memset(y_mem_, 0, sizeof(y_mem_)); return e; }
         for (int k = ORDER - 1; k > 0; --k) y_mem_[k] = y_mem_[k - 1];
         y_mem_[0] = y;
         return y;
@@ -107,6 +115,7 @@ private:
     float win_buf_[WIN] = {};
     int   win_pos_      = 0;
     int   hop_count_    = 0;
+    int   samples_seen_ = 0;
     float a_[ORDER]     = {};
     float x_mem_[ORDER] = {};
     float y_mem_[ORDER] = {};

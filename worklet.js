@@ -14,9 +14,10 @@ class FormantPreserver {
     this.ORDER = 16;
     this.WIN   = 512;
     this.HOP   = 128;
-    this.winBuf   = new Float32Array(512);
-    this.winPos   = 0;
-    this.hopCount = 0;
+    this.winBuf      = new Float32Array(512);
+    this.winPos      = 0;
+    this.hopCount    = 0;
+    this.samplesSeen = 0;
     this.a        = new Float32Array(16);
     this.xMem     = new Float32Array(16);
     this.yMem     = new Float32Array(16);
@@ -25,7 +26,7 @@ class FormantPreserver {
   reset() {
     this.winBuf.fill(0); this.a.fill(0);
     this.xMem.fill(0); this.yMem.fill(0);
-    this.winPos = 0; this.hopCount = 0;
+    this.winPos = 0; this.hopCount = 0; this.samplesSeen = 0;
   }
 
   _updateLpc() {
@@ -62,7 +63,12 @@ class FormantPreserver {
   analyze(x) {
     this.winBuf[this.winPos] = x;
     this.winPos = (this.winPos + 1) % this.WIN;
-    if (++this.hopCount >= this.HOP) { this.hopCount = 0; this._updateLpc(); }
+    if (this.samplesSeen < this.WIN) this.samplesSeen++;
+    if (++this.hopCount >= this.HOP) {
+      this.hopCount = 0;
+      if (this.samplesSeen >= this.WIN) this._updateLpc();
+    }
+    if (this.samplesSeen < this.WIN) return x;
     let e = x;
     for (let k = 0; k < this.ORDER; k++) e += this.a[k] * this.xMem[k];
     this.xMem.copyWithin(1, 0, this.ORDER - 1);
@@ -71,8 +77,10 @@ class FormantPreserver {
   }
 
   synthesize(e) {
+    if (this.samplesSeen < this.WIN) return e;
     let y = e;
     for (let k = 0; k < this.ORDER; k++) y -= this.a[k] * this.yMem[k];
+    if (!isFinite(y)) { this.yMem.fill(0); return e; }
     this.yMem.copyWithin(1, 0, this.ORDER - 1);
     this.yMem[0] = y;
     return y;
