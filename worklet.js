@@ -125,7 +125,9 @@ class SilvertuneProcessor extends AudioWorkletProcessor {
     const shift = Math.abs(denom) > 1e-12 ? (s0-s2)/denom : 0;
     const hz = sampleRate / (tau + shift);
     const conf = Math.max(0, Math.min(1, 1-s1));
-    if (hz > 80 && hz < 2000 && conf > 0.5) {
+    if (this.tune < 0.01) {
+      this.heldRatio = 1.0;
+    } else if (hz > 80 && hz < 2000 && conf > 0.5) {
       const detMidiF = hzToMidi(hz);
       const detMidi  = Math.round(detMidiF);
       const corrMidi = quantizeToScale(detMidi, this.keyIdx, this.scaleIdx);

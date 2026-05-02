@@ -96,7 +96,9 @@ static void audio_callback(ma_device* /*dev*/, void* out_buf, const void* in_buf
             g_yin.run_detect();
             float hz   = g_yin.pitch_hz;
             float conf = g_yin.confidence;
-            if (hz > 80.0f && hz < 2000.0f && conf > 0.5f) {
+            if (p.tune < 0.01) {
+                g_held_ratio = 1.0;
+            } else if (hz > 80.0f && hz < 2000.0f && conf > 0.5f) {
                 double det_midi_f = hz_to_midi(hz);
                 int    det_round  = (int)std::round(det_midi_f);
                 double corr       = quantize_to_scale(det_round, p.key, p.scale);
@@ -105,7 +107,6 @@ static void audio_callback(ma_device* /*dev*/, void* out_buf, const void* in_buf
                 g_det_note  = det_round;
                 g_corr_note = corr_int;
                 if (cents_off < 40.0) {
-                    // Within dead zone — no correction needed
                     g_held_ratio = 1.0;
                 } else {
                     double ratio = midi_to_hz(corr_int) / (double)hz;
