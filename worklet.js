@@ -65,7 +65,8 @@ class SilvertuneProcessor extends AudioWorkletProcessor {
     this.diff     = new Float32Array(512);
     this.yinPos   = 0;
 
-    this.heldRatio     = 1.0;
+    this.heldRatio    = 1.0;
+    this.currentRatio = 1.0;
     this.lockedMidi    = -1.0;
     this.lowConfCount  = 0;
     this.detectedNote  = -1;
@@ -143,6 +144,7 @@ class SilvertuneProcessor extends AudioWorkletProcessor {
         this.lockedMidi   = -1.0;
         this.lowConfCount = 0;
         this.heldRatio    = 1.0;
+        this.currentRatio = 1.0;
       }
     }
   }
@@ -173,8 +175,10 @@ class SilvertuneProcessor extends AudioWorkletProcessor {
       if (this.bypass) {
         output[i] = s * this.volume;
       } else {
-        const wet = this.shifter.process(s, this.heldRatio);
-        const dbl = this.doubler.process(s, this.heldRatio * DETUNE);
+        const coeff = this.tune >= 1.0 ? 1.0 : this.tune * this.tune * 0.03;
+        this.currentRatio += (this.heldRatio - this.currentRatio) * coeff;
+        const wet = this.shifter.process(s, this.currentRatio);
+        const dbl = this.doubler.process(s, this.currentRatio * DETUNE);
         const processed = (wet + dbl * this.wide) * this.volume;
         output[i] = processed * this.gateGain + s * this.volume * (1.0 - this.gateGain);
       }
