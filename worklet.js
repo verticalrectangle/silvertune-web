@@ -28,6 +28,8 @@ class GrainShifter {
     this.grainSize = 128;
   }
 
+  resetPhases() { this.phases = [0.0, 1/3, 2/3]; }
+
   process(input, pitchRatio) {
     this.buf[this.writePos & this.MASK] = input;
     this.writePos++;
@@ -65,7 +67,6 @@ class SilvertuneProcessor extends AudioWorkletProcessor {
     this.diff     = new Float32Array(256);
     this.yinPos   = 0;
 
-    this.targetRatio   = 1.0;
     this.heldRatio     = 1.0;
     this.detectedNote  = -1;
     this.correctedNote = -1;
@@ -125,15 +126,26 @@ class SilvertuneProcessor extends AudioWorkletProcessor {
     const hz = sampleRate / (tau + shift);
     const conf = Math.max(0, Math.min(1, 1-s1));
     if (hz > 80 && hz < 2000 && conf > 0.5) {
-      const detMidi  = Math.round(hzToMidi(hz));
+      const detMidiF = hzToMidi(hz);
+      const detMidi  = Math.round(detMidiF);
       const corrMidi = quantizeToScale(detMidi, this.keyIdx, this.scaleIdx);
-      let ratio = midiToHz(corrMidi) / hz;
-      ratio = 1.0 + (ratio - 1.0) * this.tune;
-      this.targetRatio   = Math.max(0.5, Math.min(2.0, ratio));
+      const centsOff = Math.abs(detMidiF - corrMidi) * 100;
       this.detectedNote  = detMidi;
       this.correctedNote = corrMidi;
+      if (centsOff < 40) {
+        this.heldRatio = 1.0;
+      } else {
+        let ratio = midiToHz(corrMidi) / hz;
+        ratio = 1.0 + (ratio - 1.0) * this.tune;
+        const newRatio = Math.max(0.5, Math.min(2.0, ratio));
+        if (Math.abs(newRatio - this.heldRatio) > 0.06) {
+          this.shifter.resetPhases();
+          this.doubler.resetPhases();
+        }
+        this.heldRatio = newRatio;
+      }
     } else {
-      this.targetRatio += 0.0002 * (1.0 - this.targetRatio);
+      this.heldRatio = 1.0;
     }
   }
 
@@ -142,7 +154,6 @@ class SilvertuneProcessor extends AudioWorkletProcessor {
     if (!input || !output) return true;
 
     for (let i = 0; i < input.length; i++) {
-      this.heldRatio += 0.001 * (this.targetRatio - this.heldRatio);
       const s = input[i] * this.gain;
       this.gateEnergy = 0.999 * this.gateEnergy + 0.001 * s * s;
       const gateOpen = this.gateEnergy > this.GATE_THRESH ? 1.0 : 0.0;

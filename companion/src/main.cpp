@@ -48,10 +48,9 @@ static YinDetector  g_yin;
 static GrainShifter g_wet;
 static GrainShifter g_dbl;
 
-static double g_target_ratio = 1.0;
-static double g_held_ratio   = 1.0;  // smoothed toward target each sample
-static int    g_det_note     = -1;
-static int    g_corr_note    = -1;
+static double g_held_ratio = 1.0;
+static int    g_det_note   = -1;
+static int    g_corr_note  = -1;
 
 static float   g_rms_acc    = 0.0f;
 static uint32_t g_rms_count = 0;
@@ -98,22 +97,30 @@ static void audio_callback(ma_device* /*dev*/, void* out_buf, const void* in_buf
             float hz   = g_yin.pitch_hz;
             float conf = g_yin.confidence;
             if (hz > 80.0f && hz < 2000.0f && conf > 0.5f) {
-                double det_midi  = hz_to_midi(hz);
-                int    det_round = (int)std::round(det_midi);
-                double corr      = quantize_to_scale(det_round, p.key, p.scale);
-                int    corr_int  = (int)std::round(corr);
-                double ratio     = midi_to_hz(corr_int) / (double)hz;
-                ratio = 1.0 + (ratio - 1.0) * p.tune;
-                g_target_ratio = std::max(0.5, std::min(2.0, ratio));
-                g_det_note   = det_round;
-                g_corr_note  = corr_int;
+                double det_midi_f = hz_to_midi(hz);
+                int    det_round  = (int)std::round(det_midi_f);
+                double corr       = quantize_to_scale(det_round, p.key, p.scale);
+                int    corr_int   = (int)std::round(corr);
+                double cents_off  = std::fabs(det_midi_f - corr_int) * 100.0;
+                g_det_note  = det_round;
+                g_corr_note = corr_int;
+                if (cents_off < 40.0) {
+                    // Within dead zone — no correction needed
+                    g_held_ratio = 1.0;
+                } else {
+                    double ratio = midi_to_hz(corr_int) / (double)hz;
+                    ratio = 1.0 + (ratio - 1.0) * p.tune;
+                    double new_ratio = std::max(0.5, std::min(2.0, ratio));
+                    if (std::fabs(new_ratio - g_held_ratio) > 0.06) {
+                        g_wet.reset_phases();
+                        g_dbl.reset_phases();
+                    }
+                    g_held_ratio = new_ratio;
+                }
             } else {
-                // No pitch — decay ratio back toward unity
-                g_target_ratio += 0.0002 * (1.0 - g_target_ratio);
+                g_held_ratio = 1.0;
             }
         }
-
-        g_held_ratio += 0.001 * (g_target_ratio - g_held_ratio);
 
         // Noise gate: track signal energy, open/close smoothly
         g_gate_energy = 0.999f * g_gate_energy + 0.001f * s * s;

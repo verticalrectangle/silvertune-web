@@ -394,6 +394,15 @@ body.minimal canvas { display: none; }
 .cta-setup { display:flex; gap:28px; flex-wrap:wrap; justify-content:center; margin-top:4px; }
 #github-link { position:absolute; bottom:28px; font-size:12px; letter-spacing:0.16em; text-transform:uppercase; color:rgba(255,255,255,0.35); text-decoration:none; transition:color 0.15s; }
 #github-link:hover { color:#fff; }
+#changelog { margin-top:28px; width:320px; max-width:90vw; max-height:140px; overflow-y:auto; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.1); padding:10px 14px; scrollbar-width:thin; scrollbar-color:rgba(255,255,255,0.15) transparent; }
+#changelog::-webkit-scrollbar { width:4px; }
+#changelog::-webkit-scrollbar-thumb { background:rgba(255,255,255,0.15); border-radius:2px; }
+.cl-entry { display:flex; gap:10px; align-items:baseline; padding:3px 0; border-bottom:1px solid rgba(255,255,255,0.05); }
+.cl-entry:last-child { border-bottom:none; }
+.cl-tag { font-size:11px; font-family:monospace; color:#fff; white-space:nowrap; text-decoration:none; }
+.cl-tag:hover { color:#4cffaa; }
+.cl-date { font-size:10px; color:rgba(255,255,255,0.3); white-space:nowrap; }
+.cl-desc { font-size:10px; color:rgba(255,255,255,0.45); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 
 /* ── Record modal ── */
 #rec-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.65); z-index: 40; align-items: center; justify-content: center; }
@@ -525,6 +534,7 @@ body.minimal canvas { display: none; }
     </div>
     <p class="cta-sub">clap · vst3 · auv2</p>
   </div>
+  <div id="changelog"></div>
   <a id="github-link" href="https://github.com/verticalrectangle/silvertune-web" target="_blank" rel="noopener">GitHub</a>
 </div>
 
@@ -697,12 +707,32 @@ resize();
 let companionWs = null, companionActive = false;
 const COMPANION_URL = 'ws://127.0.0.1:2747';
 let latestCompanionTag = null;
-fetch('https://api.github.com/repos/verticalrectangle/silvertune-web/releases')
-  .then(r => r.json())
-  .then(releases => {
-    const rel = releases.find(r => r.tag_name.startsWith('companion-'));
+
+(async () => {
+  try {
+    const [webRels, pluginRels] = await Promise.all([
+      fetch('https://api.github.com/repos/verticalrectangle/silvertune-web/releases').then(r => r.json()),
+      fetch('https://api.github.com/repos/epsilver/silvertune/releases').then(r => r.json()),
+    ]);
+    const rel = webRels.find(r => r.tag_name.startsWith('companion-'));
     if (rel) latestCompanionTag = rel.tag_name;
-  }).catch(() => {});
+
+    const all = [
+      ...(Array.isArray(webRels) ? webRels : []),
+      ...(Array.isArray(pluginRels) ? pluginRels : []),
+    ].sort((a, b) => new Date(b.published_at) - new Date(a.published_at)).slice(0, 12);
+
+    const cl = document.getElementById('changelog');
+    if (cl && all.length) {
+      cl.innerHTML = all.map(r => {
+        const date = new Date(r.published_at).toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' });
+        const desc = (r.body || '').split('\n').find(l => l.trim() && !l.startsWith('#')) || '';
+        const repo = r.html_url.includes('epsilver') ? 'epsilver/silvertune' : 'verticalrectangle/silvertune-web';
+        return `<div class="cl-entry"><a class="cl-tag" href="${r.html_url}" target="_blank" rel="noopener">${r.tag_name}</a><span class="cl-date">${date}</span><span class="cl-desc">${desc.replace(/[<>]/g,'')}</span></div>`;
+      }).join('');
+    }
+  } catch(_) {}
+})();
 
 function probeCompanion() {
   return new Promise(resolve => {

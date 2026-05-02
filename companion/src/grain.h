@@ -19,6 +19,10 @@ public:
         phases_[0] = 0.0; phases_[1] = 1.0/3.0; phases_[2] = 2.0/3.0;
     }
 
+    void reset_phases() {
+        phases_[0] = 0.0; phases_[1] = 1.0/3.0; phases_[2] = 2.0/3.0;
+    }
+
     float process(float in, double ratio) {
         buf_[write_ & MASK] = in;
         ++write_;
