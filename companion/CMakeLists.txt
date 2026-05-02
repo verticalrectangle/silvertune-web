@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.21)
-project(silvertune-companion VERSION 0.2.0 LANGUAGES CXX C)
+project(silvertune-companion VERSION 0.2.1 LANGUAGES CXX C)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
