@@ -265,6 +265,20 @@ input[type=range]::-webkit-slider-thumb {
 .xcat { position: relative; }
 
 /* ── Player logo ── */
+#piano-legend {
+  position: fixed; top: 22px; right: 22px; z-index: 10;
+  display: flex; flex-direction: column; gap: 5px;
+  pointer-events: none;
+}
+.legend-row {
+  display: flex; align-items: center; gap: 7px;
+  font-size: 9px; letter-spacing: 0.16em; text-transform: uppercase;
+  color: rgba(255,255,255,0.45); text-shadow: 0 1px 2px rgba(0,0,0,0.8);
+}
+.legend-swatch {
+  width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0;
+  border: 1px solid rgba(255,255,255,0.15);
+}
 #player-logo {
   position: fixed; top: 20px; left: 24px; z-index: 4;
   display: flex; align-items: center; gap: 10px;
@@ -444,6 +458,12 @@ body.minimal canvas { display: none; }
 
 <div id="hud">
   <div id="conf-bar-wrap"><div id="conf-bar"></div></div>
+</div>
+
+<div id="piano-legend">
+  <div class="legend-row"><span class="legend-swatch" style="background:#fff"></span><span>corrected</span></div>
+  <div class="legend-row"><span class="legend-swatch" style="background:rgba(110,148,208,0.99)"></span><span>detected</span></div>
+  <div class="legend-row"><span class="legend-swatch" style="background:rgba(60,62,70,0.9)"></span><span>out of scale</span></div>
 </div>
 
 <div id="player-logo">
