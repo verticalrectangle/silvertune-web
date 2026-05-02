@@ -149,7 +149,7 @@ static std::string json_pitch(int det, int corr, float rms) {
 
 int main()
 {
-    std::printf("Silvertune Companion v0.2.2\n");
+    std::printf("Silvertune Companion v0.2.3\n");
     std::printf("Listening on ws://127.0.0.1:%u\n", (unsigned)WS_PORT);
     std::fflush(stdout);
 
@@ -193,7 +193,7 @@ int main()
         }
         std::printf("Browser connected\n");
         std::fflush(stdout);
-        ws.send("{\"type\":\"version\",\"v\":\"0.2.2\"}");
+        ws.send("{\"type\":\"version\",\"v\":\"0.2.3\"}");
 
         while (ws.connected()) {
             // Send pitch report if ready
