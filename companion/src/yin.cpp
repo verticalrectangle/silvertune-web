@@ -1,5 +1,6 @@
 #include "yin.h"
 #include <cmath>
+#include <algorithm>
 
 static constexpr float YIN_THRESHOLD = 0.15f;
 
