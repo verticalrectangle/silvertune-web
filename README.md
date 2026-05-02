@@ -73,7 +73,19 @@ AudioWorklets require a secure context (HTTPS or localhost).
 
 ## Deployment
 
-GitHub Actions deploys to GitHub Pages on every push to `master`. Custom domain set via `CNAME`.
+The [Deploy workflow](.github/workflows/deploy.yml) publishes to GitHub Pages automatically on every push to `master`. Custom domain set via `CNAME`.
+
+### Companion release builds
+
+The [Release Companion workflow](.github/workflows/release-companion.yml) builds native binaries for Linux, macOS (universal), and Windows.
+
+Trigger manually from the Actions tab, or with the GitHub CLI:
+
+```bash
+gh workflow run release-companion.yml --field tag=companion-v1.0.0
+```
+
+Binaries are published as a GitHub Release at the specified tag.
 
 ---
 
