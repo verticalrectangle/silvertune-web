@@ -818,11 +818,11 @@ let arcPhase   = 0;   // animates correction arc
 let pianoCache = null, pianoCacheKey = '';
 
 function pianoLayout() {
-  const wkw = Math.min(46, Math.floor(W / 14));
+  const wkw = Math.min(60, Math.floor(W / 8));
   const wkh = Math.round(wkw * 2.9);
   const bkw = Math.round(wkw * 0.58);
   const bkh = Math.round(wkh * 0.62);
-  const x0  = Math.round(cx - 7 * wkw);   // 14 white keys centered
+  const x0  = Math.round(cx - 3.5 * wkw);  // 7 white keys centered
   const y0  = Math.round(cy - wkh / 2 - 20);
   return { wkw, wkh, bkw, bkh, x0, y0 };
 }
@@ -913,25 +913,21 @@ function buildPianoCache(L) {
   const wFont = `bold ${Math.max(9, Math.round(wkw * 0.28))}px sans-serif`;
   const bFont = `bold ${Math.max(7, Math.round(wkw * 0.20))}px sans-serif`;
   oc2.textAlign = 'center';
-  for (let oct = 0; oct < 2; oct++) {
-    for (let wi = 0; wi < 7; wi++) {
-      const note = WK[wi];
-      const x = x0 + (oct * 7 + wi) * wkw;
-      drawWhiteKey(oc2, note, x, y0, wkw, wkh, 'normal', 0);
-      if (!inScale(note)) { oc2.fillStyle = 'rgba(8,10,16,0.52)'; oc2.fillRect(x+1, y0, wkw-2, wkh); }
-      oc2.font = wFont; oc2.fillStyle = 'rgba(255,255,255,0.55)';
-      oc2.fillText(KEYS[note], x + wkw / 2, y0 + wkh - 6);
-    }
+  for (let wi = 0; wi < 7; wi++) {
+    const note = WK[wi];
+    const x = x0 + wi * wkw;
+    drawWhiteKey(oc2, note, x, y0, wkw, wkh, 'normal', 0);
+    if (!inScale(note)) { oc2.fillStyle = 'rgba(8,10,16,0.52)'; oc2.fillRect(x+1, y0, wkw-2, wkh); }
+    oc2.font = wFont; oc2.fillStyle = 'rgba(255,255,255,0.55)';
+    oc2.fillText(KEYS[note], x + wkw / 2, y0 + wkh - 6);
   }
-  for (let oct = 0; oct < 2; oct++) {
-    for (let bi = 0; bi < 5; bi++) {
-      const note = BK[bi];
-      const x = x0 + (oct * 7 + BX[bi]) * wkw - bkw / 2;
-      drawBlackKey(oc2, note, x, y0, bkw, bkh, 'normal', 0);
-      if (!inScale(note)) { oc2.fillStyle = 'rgba(8,10,16,0.58)'; oc2.fillRect(x, y0, bkw, bkh); }
-      oc2.font = bFont; oc2.fillStyle = 'rgba(255,255,255,0.62)';
-      oc2.fillText(KEYS[note], x + bkw / 2, y0 + bkh - 5);
-    }
+  for (let bi = 0; bi < 5; bi++) {
+    const note = BK[bi];
+    const x = x0 + BX[bi] * wkw - bkw / 2;
+    drawBlackKey(oc2, note, x, y0, bkw, bkh, 'normal', 0);
+    if (!inScale(note)) { oc2.fillStyle = 'rgba(8,10,16,0.58)'; oc2.fillRect(x, y0, bkw, bkh); }
+    oc2.font = bFont; oc2.fillStyle = 'rgba(255,255,255,0.62)';
+    oc2.fillText(KEYS[note], x + bkw / 2, y0 + bkh - 5);
   }
   return oc;
 }
@@ -955,35 +951,27 @@ function drawPiano() {
   const wFont = `bold ${Math.max(9, Math.round(wkw * 0.28))}px sans-serif`;
   const bFont = `bold ${Math.max(7, Math.round(wkw * 0.20))}px sans-serif`;
   ctx.textAlign = 'center';
-  for (let oct = 0; oct < 2; oct++) {
-    for (let wi = 0; wi < 7; wi++) {
-      const note = WK[wi];
-      const isC = note === cn, isD = note === dn && note !== cn;
-      if (!isC && !isD) continue;
-      const x = x0 + (oct * 7 + wi) * wkw;
-      const state = isC ? 'corrected' : 'detected';
-      ctx.clearRect(x, y0, wkw, wkh + 4);
-      drawWhiteKey(ctx, note, x, y0, wkw, wkh, state, pianoGlow);
-      if (isC) {
-        const g = ctx.createLinearGradient(x, y0 + wkh * 0.5, x, y0 + wkh + 55);
-        g.addColorStop(0, `rgba(255,255,255,${0.42 + pianoGlow * 0.3})`);
-        g.addColorStop(1, 'rgba(255,255,255,0)');
-        ctx.fillStyle = g; ctx.fillRect(x - 2, y0 + wkh * 0.5, wkw + 4, 55);
-      }
-      ctx.font = wFont; ctx.fillStyle = isC ? 'rgba(20,24,36,0.85)' : 'rgba(255,255,255,0.55)';
-      ctx.fillText(KEYS[note], x + wkw / 2, y0 + wkh - 6);
+  for (let wi = 0; wi < 7; wi++) {
+    const note = WK[wi];
+    const isC = note === cn, isD = note === dn && note !== cn;
+    if (!isC && !isD) continue;
+    const x = x0 + wi * wkw;
+    const state = isC ? 'corrected' : 'detected';
+    ctx.clearRect(x, y0, wkw, wkh + 4);
+    drawWhiteKey(ctx, note, x, y0, wkw, wkh, state, pianoGlow);
+    if (isC) {
+      const g = ctx.createLinearGradient(x, y0 + wkh * 0.5, x, y0 + wkh + 55);
+      g.addColorStop(0, `rgba(255,255,255,${0.42 + pianoGlow * 0.3})`);
+      g.addColorStop(1, 'rgba(255,255,255,0)');
+      ctx.fillStyle = g; ctx.fillRect(x - 2, y0 + wkh * 0.5, wkw + 4, 55);
     }
+    ctx.font = wFont; ctx.fillStyle = isC ? 'rgba(20,24,36,0.85)' : 'rgba(255,255,255,0.55)';
+    ctx.fillText(KEYS[note], x + wkw / 2, y0 + wkh - 6);
   }
 
   // Correction arc
   if (dn >= 0 && cn >= 0 && dn !== cn) {
-    let best = null, bestD = Infinity;
-    for (let do_ = 0; do_ < 2; do_++) for (let co = 0; co < 2; co++) {
-      const dxi = keyX(dn, do_, L), cxi = keyX(cn, co, L);
-      const d = Math.abs(dxi - cxi);
-      if (d < bestD) { bestD = d; best = { dxi, cxi }; }
-    }
-    const { dxi, cxi } = best;
+    const dxi = keyX(dn, 0, L), cxi = keyX(cn, 0, L);
     const ay = y0 - 14;
     const spread = Math.abs(cxi - dxi);
     const pulse = 0.55 + Math.sin(arcPhase) * 0.2;
@@ -1004,18 +992,31 @@ function drawPiano() {
   }
 
   // Active black keys (overwrite cached version)
-  for (let oct = 0; oct < 2; oct++) {
-    for (let bi = 0; bi < 5; bi++) {
-      const note = BK[bi];
-      const isC = note === cn, isD = note === dn && note !== cn;
-      if (!isC && !isD) continue;
-      const x = x0 + (oct * 7 + BX[bi]) * wkw - bkw / 2;
-      const state = isC ? 'corrected' : 'detected';
-      ctx.clearRect(x, y0, bkw, bkh + 4);
-      drawBlackKey(ctx, note, x, y0, bkw, bkh, state, pianoGlow);
-      ctx.font = bFont; ctx.fillStyle = isC ? 'rgba(20,24,36,0.85)' : 'rgba(255,255,255,0.62)';
-      ctx.fillText(KEYS[note], x + bkw / 2, y0 + bkh - 5);
-    }
+  for (let bi = 0; bi < 5; bi++) {
+    const note = BK[bi];
+    const isC = note === cn, isD = note === dn && note !== cn;
+    if (!isC && !isD) continue;
+    const x = x0 + BX[bi] * wkw - bkw / 2;
+    const state = isC ? 'corrected' : 'detected';
+    ctx.clearRect(x, y0, bkw, bkh + 4);
+    drawBlackKey(ctx, note, x, y0, bkw, bkh, state, pianoGlow);
+    ctx.font = bFont; ctx.fillStyle = isC ? 'rgba(20,24,36,0.85)' : 'rgba(255,255,255,0.62)';
+    ctx.fillText(KEYS[note], x + bkw / 2, y0 + bkh - 5);
+  }
+
+  // Note name above piano
+  if (cn >= 0) {
+    const nx = keyX(cn, 0, L);
+    ctx.textAlign = 'center';
+    ctx.font = `bold ${Math.round(wkw * 0.7)}px Inter, sans-serif`;
+    ctx.fillStyle = `rgba(255,255,255,${0.72 + pianoGlow * 0.28})`;
+    ctx.fillText(KEYS[cn], nx, y0 - 32);
+  } else if (dn >= 0) {
+    const nx = keyX(dn, 0, L);
+    ctx.textAlign = 'center';
+    ctx.font = `bold ${Math.round(wkw * 0.7)}px Inter, sans-serif`;
+    ctx.fillStyle = 'rgba(148,178,220,0.65)';
+    ctx.fillText(KEYS[dn], nx, y0 - 32);
   }
 
   ctx.restore();
