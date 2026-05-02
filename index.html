@@ -632,6 +632,26 @@ body.minimal canvas { display: none; }
             <a class="dl-btn" href="https://github.com/epsilver/silvertune/releases/latest/download/silvertune-macos.zip" target="_blank" rel="noopener">macOS</a>
             <a class="dl-btn" href="https://github.com/epsilver/silvertune/releases/latest/download/silvertune-windows.zip" target="_blank" rel="noopener">Windows</a>
           </div>
+          <div style="display:flex; gap:24px; flex-wrap:wrap; margin-top:4px;">
+            <div class="setup-col">
+              <div class="setup-os">Linux</div>
+              <div class="setup-step">copy <code>Silvertune.clap</code> → <code>~/.clap/</code></div>
+              <div class="setup-step">copy <code>Silvertune.vst3</code> → <code>~/.vst3/</code></div>
+            </div>
+            <div class="setup-col">
+              <div class="setup-os">macOS</div>
+              <div class="setup-step">copy <code>Silvertune.clap</code> → <code>~/Library/Audio/Plug-Ins/CLAP/</code></div>
+              <div class="setup-step">copy <code>Silvertune.vst3</code> → <code>~/Library/Audio/Plug-Ins/VST3/</code></div>
+              <div class="setup-step">if your DAW won't scan it, run in Terminal:</div>
+              <div class="setup-code"><span>xattr -rd com.apple.quarantine ~/Library/Audio/Plug-Ins/CLAP/Silvertune.clap</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+              <div class="setup-code"><span>xattr -rd com.apple.quarantine ~/Library/Audio/Plug-Ins/VST3/Silvertune.vst3</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+            </div>
+            <div class="setup-col">
+              <div class="setup-os">Windows</div>
+              <div class="setup-step">copy <code>Silvertune.clap</code> → <code>%APPDATA%\CLAP\</code></div>
+              <div class="setup-step">copy <code>Silvertune.vst3</code> → <code>C:\Program Files\Common Files\VST3\</code></div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
