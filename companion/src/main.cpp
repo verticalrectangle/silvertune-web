@@ -97,7 +97,8 @@ static YinDetector  g_yin;
 static GrainShifter g_wet;
 static GrainShifter g_dbl;
 
-static double g_held_ratio   = 1.0;
+static double g_held_ratio    = 1.0;
+static double g_current_ratio = 1.0;
 static double g_locked_midi  = -1.0;
 static int    g_low_conf     = 0;
 static int    g_det_note     = -1;
@@ -165,9 +166,10 @@ static void audio_callback(ma_device* /*dev*/, void* out_buf, const void* in_buf
                 g_corr_note  = corr_int;
             } else if (conf < 0.35f) {
                 if (++g_low_conf >= 3) {
-                    g_locked_midi = -1.0;
-                    g_low_conf    = 0;
-                    g_held_ratio  = 1.0;
+                    g_locked_midi   = -1.0;
+                    g_low_conf      = 0;
+                    g_held_ratio    = 1.0;
+                    g_current_ratio = 1.0;
                 }
             }
         }
@@ -181,8 +183,11 @@ static void audio_callback(ma_device* /*dev*/, void* out_buf, const void* in_buf
         g_rms_acc   += s * s;
         g_rms_count++;
 
-        float wet = g_wet.process(s, g_held_ratio);
-        float dbl = g_dbl.process(s, g_held_ratio * (float)DETUNE);
+        float chase_coeff = ((float)p.tune >= 1.0f) ? 1.0f : (float)(p.tune * p.tune * 0.03);
+        g_current_ratio += (g_held_ratio - g_current_ratio) * chase_coeff;
+
+        float wet = g_wet.process(s, g_current_ratio);
+        float dbl = g_dbl.process(s, g_current_ratio * (float)DETUNE);
         float processed = (wet + dbl * (float)p.wide) * (float)p.volume;
         out[i] = (processed * g_gate_gain) + (s * (float)p.volume * (1.0f - g_gate_gain));
 
