@@ -97,9 +97,11 @@ static YinDetector  g_yin;
 static GrainShifter g_wet;
 static GrainShifter g_dbl;
 
-static double g_held_ratio = 1.0;
-static int    g_det_note   = -1;
-static int    g_corr_note  = -1;
+static double g_held_ratio   = 1.0;
+static double g_locked_midi  = -1.0;
+static int    g_low_conf     = 0;
+static int    g_det_note     = -1;
+static int    g_corr_note    = -1;
 
 static float   g_rms_acc    = 0.0f;
 static uint32_t g_rms_count = 0;
@@ -148,17 +150,25 @@ static void audio_callback(ma_device* /*dev*/, void* out_buf, const void* in_buf
             if (p.tune < 0.01) {
                 g_held_ratio = 1.0;
             } else if (hz > 80.0f && hz < 2000.0f && conf > 0.5f) {
-                double det_midi  = hz_to_midi(hz);
-                int    det_round = (int)std::round(det_midi);
+                double det_midi    = hz_to_midi(hz);
+                bool stays_locked  = g_locked_midi >= 0.0 &&
+                                     std::fabs(det_midi - g_locked_midi) < 0.4;
+                if (!stays_locked) g_locked_midi = det_midi;
+                g_low_conf = 0;
+                int    det_round = (int)std::round(g_locked_midi);
                 double corr      = quantize_to_scale(det_round, p.key, p.scale);
                 int    corr_int  = (int)std::round(corr);
                 double ratio     = midi_to_hz(corr_int) / (double)hz;
                 ratio = 1.0 + (ratio - 1.0) * p.tune;
                 g_held_ratio = std::max(0.5, std::min(2.0, ratio));
-                g_det_note   = det_round;
+                g_det_note   = (int)std::round(det_midi);
                 g_corr_note  = corr_int;
-            } else {
-                g_held_ratio = 1.0;
+            } else if (conf < 0.35f) {
+                if (++g_low_conf >= 3) {
+                    g_locked_midi = -1.0;
+                    g_low_conf    = 0;
+                    g_held_ratio  = 1.0;
+                }
             }
         }
 
