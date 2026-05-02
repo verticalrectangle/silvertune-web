@@ -109,14 +109,14 @@ class GrainShifter {
 
   resetPhases() { this.phaseA = 0.0; this.phaseB = 0.5; }
 
-  process(input, pitchRatio) {
+  process(input, pitchRatio, grainSize = this.grainSize) {
     this.buf[this.writePos & this.MASK] = input;
     this.writePos++;
-    const inc = (1.0 - pitchRatio) / this.grainSize;
+    const inc = (1.0 - pitchRatio) / grainSize;
     this.phaseA += inc; this.phaseA -= Math.floor(this.phaseA);
     this.phaseB += inc; this.phaseB -= Math.floor(this.phaseB);
-    return this._read(this.phaseA * this.grainSize + 2.0) * this._hann(this.phaseA)
-         + this._read(this.phaseB * this.grainSize + 2.0) * this._hann(this.phaseB);
+    return this._read(this.phaseA * grainSize + 2.0) * this._hann(this.phaseA)
+         + this._read(this.phaseB * grainSize + 2.0) * this._hann(this.phaseB);
   }
 
   _read(delay) {
@@ -136,8 +136,8 @@ class SilvertuneProcessor extends AudioWorkletProcessor {
     this.shifter = new GrainShifter();
     this.doubler = new GrainShifter();
 
-    this.formant   = new FormantPreserver();
     this.vibratoLpHz = 0.0;
+    this.detectedHz  = 0.0;
 
     this.heldChord1    = 1.0;
     this.currentChord1 = 1.0;
@@ -237,6 +237,7 @@ class SilvertuneProcessor extends AudioWorkletProcessor {
     } else if (useHz > 80 && useHz < 2000 && conf > 0.5) {
       const detMidi = hzToMidi(useHz);
       if (this.lockedMidi < 0) this.lockedMidi = detMidi;
+      this.detectedHz   = useHz;
       this.lowConfCount = 0;
       const corrMidi = quantizeToScale(Math.round(this.lockedMidi), this.keyIdx, this.scaleIdx);
       const refHz = midiToHz(this.lockedMidi);
@@ -254,6 +255,7 @@ class SilvertuneProcessor extends AudioWorkletProcessor {
     } else if (conf < 0.35) {
       if (++this.lowConfCount >= 3) {
         this.lockedMidi    = -1.0;
+        this.detectedHz    = 0.0;
         this.lowConfCount  = 0;
         this.heldRatio     = 1.0;
         this.currentRatio  = 1.0;
@@ -295,23 +297,20 @@ class SilvertuneProcessor extends AudioWorkletProcessor {
         this.currentRatio  += (this.heldRatio  - this.currentRatio)  * coeff;
         this.currentChord1 += (this.heldChord1 - this.currentChord1) * coeff;
         this.currentChord2 += (this.heldChord2 - this.currentChord2) * coeff;
-        const src = this.formantOn ? this.formant.analyze(s) : s;
-        let wet = this.shifter.process(src, this.currentRatio);
-        const dbl = this.doubler.process(src, this.currentRatio * DETUNE);
+        let grainSz = 256;
+        if (this.formantOn && this.detectedHz > 20) {
+          const period = Math.round(sampleRate / this.detectedHz);
+          grainSz = Math.max(64, Math.min(512, period));
+        }
+        let wet = this.shifter.process(s, this.currentRatio, grainSz);
+        const dbl = this.doubler.process(s, this.currentRatio * DETUNE, grainSz);
         let out = wet + dbl * this.wide;
-        if (this.formantOn) out = this.formant.synthesize(out);
         if (this.chordOn) {
-          const c1  = this.chord1.process(src, this.currentChord1);
-          const c1d = this.chord1dbl.process(src, this.currentChord1 * DETUNE);
-          const c2  = this.chord2.process(src, this.currentChord2);
-          const c2d = this.chord2dbl.process(src, this.currentChord2 * DETUNE);
-          let c1out = c1 + c1d * this.wide;
-          let c2out = c2 + c2d * this.wide;
-          if (this.formantOn) {
-            c1out = this.formant.synthesize(c1out);
-            c2out = this.formant.synthesize(c2out);
-          }
-          out = out * 0.6 + c1out * 0.25 + c2out * 0.25;
+          const c1  = this.chord1.process(s, this.currentChord1, grainSz);
+          const c1d = this.chord1dbl.process(s, this.currentChord1 * DETUNE, grainSz);
+          const c2  = this.chord2.process(s, this.currentChord2, grainSz);
+          const c2d = this.chord2dbl.process(s, this.currentChord2 * DETUNE, grainSz);
+          out = out * 0.6 + (c1 + c1d * this.wide) * 0.25 + (c2 + c2d * this.wide) * 0.25;
         }
         const processed = out * this.volume;
         output[i] = processed * this.gateGain + s * this.volume * (1.0 - this.gateGain);

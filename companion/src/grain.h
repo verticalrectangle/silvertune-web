@@ -23,16 +23,16 @@ public:
         phase_a_ = 0.0; phase_b_ = 0.5;
     }
 
-    float process(float in, double ratio) {
+    float process(float in, double ratio, double grain = GRAIN) {
         buf_[write_ & MASK] = in;
         ++write_;
-        const double inc = (1.0 - ratio) / GRAIN;
+        const double inc = (1.0 - ratio) / grain;
 
         phase_a_ += inc; phase_a_ -= std::floor(phase_a_);
         phase_b_ += inc; phase_b_ -= std::floor(phase_b_);
 
-        float sa = lerp(phase_a_ * GRAIN + 2.0) * hann(phase_a_);
-        float sb = lerp(phase_b_ * GRAIN + 2.0) * hann(phase_b_);
+        float sa = lerp(phase_a_ * grain + 2.0) * hann(phase_a_);
+        float sb = lerp(phase_b_ * grain + 2.0) * hann(phase_b_);
         return sa + sb;
     }
 

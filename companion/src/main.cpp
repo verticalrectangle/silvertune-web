@@ -189,8 +189,9 @@ static FormantPreserver g_formant;
 
 static double g_held_ratio    = 1.0;
 static double g_current_ratio = 1.0;
-static double g_locked_midi  = -1.0;
-static int    g_low_conf     = 0;
+static double g_locked_midi   = -1.0;
+static float  g_detected_hz   = 0.0f;
+static int    g_low_conf      = 0;
 static int    g_det_note     = -1;
 static int    g_corr_note    = -1;
 
@@ -260,6 +261,7 @@ static void audio_callback(ma_device* /*dev*/, void* out_buf, const void* in_buf
             } else if (use_hz > 80.0f && use_hz < 2000.0f && conf > 0.5f) {
                 double det_midi    = hz_to_midi(use_hz);
                 if (g_locked_midi < 0.0) g_locked_midi = det_midi;
+                g_detected_hz = use_hz;
                 g_low_conf = 0;
                 int    det_round = (int)std::round(g_locked_midi);
                 double corr      = quantize_to_scale(det_round, p.key, p.scale);
@@ -279,6 +281,7 @@ static void audio_callback(ma_device* /*dev*/, void* out_buf, const void* in_buf
             } else if (conf < 0.35f) {
                 if (++g_low_conf >= 3) {
                     g_locked_midi    = -1.0;
+                    g_detected_hz    = 0.0f;
                     g_low_conf       = 0;
                     g_held_ratio     = 1.0;
                     g_current_ratio  = 1.0;
@@ -304,23 +307,21 @@ static void audio_callback(ma_device* /*dev*/, void* out_buf, const void* in_buf
         g_current_chord1 += (g_held_chord1 - g_current_chord1) * chase_coeff;
         g_current_chord2 += (g_held_chord2 - g_current_chord2) * chase_coeff;
 
-        float src = p.formant_on ? g_formant.analyze(s) : s;
-        float wet = g_wet.process(src, g_current_ratio);
-        float dbl = g_dbl.process(src, g_current_ratio * (float)DETUNE);
+        double psola_grain = GrainShifter::GRAIN;
+        if (p.formant_on && g_detected_hz > 20.0f) {
+            double period = 48000.0 / g_detected_hz;
+            psola_grain = std::max(64.0, std::min(512.0, period));
+        }
+
+        float wet   = g_wet.process(s, g_current_ratio, psola_grain);
+        float dbl   = g_dbl.process(s, g_current_ratio * (float)DETUNE, psola_grain);
         float out_s = wet + dbl * (float)p.wide;
-        if (p.formant_on) out_s = g_formant.synthesize(out_s);
         if (p.chord_on) {
-            float c1  = g_chord1.process(src, (float)g_current_chord1);
-            float c1d = g_chord1_dbl.process(src, (float)g_current_chord1 * (float)DETUNE);
-            float c2  = g_chord2.process(src, (float)g_current_chord2);
-            float c2d = g_chord2_dbl.process(src, (float)g_current_chord2 * (float)DETUNE);
-            float c1out = c1 + c1d * (float)p.wide;
-            float c2out = c2 + c2d * (float)p.wide;
-            if (p.formant_on) {
-                c1out = g_formant.synthesize(c1out);
-                c2out = g_formant.synthesize(c2out);
-            }
-            out_s = out_s * 0.6f + c1out * 0.25f + c2out * 0.25f;
+            float c1  = g_chord1.process(s, (float)g_current_chord1, psola_grain);
+            float c1d = g_chord1_dbl.process(s, (float)g_current_chord1 * (float)DETUNE, psola_grain);
+            float c2  = g_chord2.process(s, (float)g_current_chord2, psola_grain);
+            float c2d = g_chord2_dbl.process(s, (float)g_current_chord2 * (float)DETUNE, psola_grain);
+            out_s = out_s * 0.6f + (c1 + c1d * (float)p.wide) * 0.25f + (c2 + c2d * (float)p.wide) * 0.25f;
         }
         float processed = out_s * (float)p.volume;
         out[i] = (processed * g_gate_gain) + (s * (float)p.volume * (1.0f - g_gate_gain));
