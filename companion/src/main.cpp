@@ -48,9 +48,10 @@ static YinDetector  g_yin;
 static GrainShifter g_wet;
 static GrainShifter g_dbl;
 
-static double g_held_ratio  = 1.0;
-static int    g_det_note    = -1;
-static int    g_corr_note   = -1;
+static double g_target_ratio = 1.0;
+static double g_held_ratio   = 1.0;  // smoothed toward target each sample
+static int    g_det_note     = -1;
+static int    g_corr_note    = -1;
 
 static float   g_rms_acc    = 0.0f;
 static uint32_t g_rms_count = 0;
@@ -96,11 +97,13 @@ static void audio_callback(ma_device* /*dev*/, void* out_buf, const void* in_buf
                 int    corr_int  = (int)std::round(corr);
                 double ratio     = midi_to_hz(corr_int) / (double)hz;
                 ratio = 1.0 + (ratio - 1.0) * p.tune;
-                g_held_ratio = std::max(0.5, std::min(2.0, ratio));
+                g_target_ratio = std::max(0.5, std::min(2.0, ratio));
                 g_det_note   = det_round;
                 g_corr_note  = corr_int;
             }
         }
+
+        g_held_ratio += 0.001 * (g_target_ratio - g_held_ratio);
 
         g_rms_acc   += s * s;
         g_rms_count++;

@@ -65,6 +65,7 @@ class SilvertuneProcessor extends AudioWorkletProcessor {
     this.diff     = new Float32Array(256);
     this.yinPos   = 0;
 
+    this.targetRatio   = 1.0;
     this.heldRatio     = 1.0;
     this.detectedNote  = -1;
     this.correctedNote = -1;
@@ -124,7 +125,7 @@ class SilvertuneProcessor extends AudioWorkletProcessor {
       const corrMidi = quantizeToScale(detMidi, this.keyIdx, this.scaleIdx);
       let ratio = midiToHz(corrMidi) / hz;
       ratio = 1.0 + (ratio - 1.0) * this.tune;
-      this.heldRatio     = Math.max(0.5, Math.min(2.0, ratio));
+      this.targetRatio   = Math.max(0.5, Math.min(2.0, ratio));
       this.detectedNote  = detMidi;
       this.correctedNote = corrMidi;
     }
@@ -135,6 +136,7 @@ class SilvertuneProcessor extends AudioWorkletProcessor {
     if (!input || !output) return true;
 
     for (let i = 0; i < input.length; i++) {
+      this.heldRatio += 0.001 * (this.targetRatio - this.heldRatio);
       const s = input[i] * this.gain;
 
       const sPre = s - 0.95 * this.prePrev;
