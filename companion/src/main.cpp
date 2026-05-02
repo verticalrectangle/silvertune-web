@@ -57,6 +57,12 @@ static uint32_t g_rms_count = 0;
 static uint32_t g_post_counter = 0;
 static constexpr uint32_t POST_EVERY = 512;
 
+// Pre-emphasis + RMS normalisation for YIN only
+static float g_pre_prev  = 0.0f;  // last sample for high-pass
+static float g_yin_energy = 1e-6f; // leaky RMS² tracker
+static constexpr float YIN_TARGET = 0.08f; // target RMS for YIN input
+static constexpr float YIN_MAX_GAIN = 80.0f; // cap normalisation at 80×
+
 // ── Audio callback ────────────────────────────────────────────────────────────
 
 static void audio_callback(ma_device* /*dev*/, void* out_buf, const void* in_buf, ma_uint32 n)
@@ -70,7 +76,15 @@ static void audio_callback(ma_device* /*dev*/, void* out_buf, const void* in_buf
     for (ma_uint32 i = 0; i < n; ++i) {
         float s = in[i] * (float)p.gain;
 
-        g_yin.push_sample(s);
+        // Pre-emphasis (one-pole high-pass) + RMS normalisation for YIN
+        float s_pre = s - 0.95f * g_pre_prev;
+        g_pre_prev  = s;
+        g_yin_energy = 0.999f * g_yin_energy + 0.001f * s_pre * s_pre;
+        float norm_gain = YIN_TARGET / std::sqrt(g_yin_energy);
+        if (norm_gain > YIN_MAX_GAIN) norm_gain = YIN_MAX_GAIN;
+        float s_yin = s_pre * norm_gain;
+
+        g_yin.push_sample(s_yin);
         if (g_yin.pending) {
             g_yin.run_detect();
             float hz   = g_yin.pitch_hz;
