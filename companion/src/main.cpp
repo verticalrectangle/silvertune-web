@@ -257,7 +257,8 @@ static void audio_callback(ma_device* /*dev*/, void* out_buf, const void* in_buf
                 int    det_round = (int)std::round(g_locked_midi);
                 double corr      = quantize_to_scale(det_round, p.key, p.scale);
                 int    corr_int  = (int)std::round(corr);
-                double ratio     = midi_to_hz(corr_int) / (double)use_hz;
+                double ref_hz    = midi_to_hz((float)g_locked_midi);
+                double ratio     = midi_to_hz(corr_int) / ref_hz;
                 ratio = 1.0 + (ratio - 1.0) * p.tune;
                 g_held_ratio = std::max(0.5, std::min(2.0, ratio));
                 g_det_note   = (int)std::round(det_midi);
@@ -265,8 +266,8 @@ static void audio_callback(ma_device* /*dev*/, void* out_buf, const void* in_buf
                 if (p.chord_on) {
                     float c1_hz = midi_to_hz(corr_int + 7.0f);
                     float c2_hz = midi_to_hz(corr_int - 5.0f);
-                    g_held_chord1 = std::max(0.5, std::min(2.0, (double)(c1_hz / use_hz)));
-                    g_held_chord2 = std::max(0.5, std::min(2.0, (double)(c2_hz / use_hz)));
+                    g_held_chord1 = std::max(0.5, std::min(2.0, (double)(c1_hz / ref_hz)));
+                    g_held_chord2 = std::max(0.5, std::min(2.0, (double)(c2_hz / ref_hz)));
                 }
             } else if (conf < 0.35f) {
                 if (++g_low_conf >= 3) {

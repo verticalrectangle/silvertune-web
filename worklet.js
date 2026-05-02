@@ -232,7 +232,8 @@ class SilvertuneProcessor extends AudioWorkletProcessor {
       if (!staysLocked) this.lockedMidi = detMidi;
       this.lowConfCount = 0;
       const corrMidi = quantizeToScale(Math.round(this.lockedMidi), this.keyIdx, this.scaleIdx);
-      let ratio = midiToHz(corrMidi) / useHz;
+      const refHz = midiToHz(this.lockedMidi);
+      let ratio = midiToHz(corrMidi) / refHz;
       ratio = 1.0 + (ratio - 1.0) * this.tune;
       this.heldRatio     = Math.max(0.5, Math.min(2.0, ratio));
       this.detectedNote  = Math.round(detMidi);
@@ -240,8 +241,8 @@ class SilvertuneProcessor extends AudioWorkletProcessor {
       if (this.chordOn) {
         const c1Hz = midiToHz(corrMidi + 7);
         const c2Hz = midiToHz(corrMidi - 5);
-        this.heldChord1 = Math.max(0.5, Math.min(2.0, c1Hz / useHz));
-        this.heldChord2 = Math.max(0.5, Math.min(2.0, c2Hz / useHz));
+        this.heldChord1 = Math.max(0.5, Math.min(2.0, c1Hz / refHz));
+        this.heldChord2 = Math.max(0.5, Math.min(2.0, c2Hz / refHz));
       }
     } else if (conf < 0.35) {
       if (++this.lowConfCount >= 3) {
