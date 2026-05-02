@@ -59,10 +59,17 @@ static uint32_t g_post_counter = 0;
 static constexpr uint32_t POST_EVERY = 512;
 
 // Pre-emphasis + RMS normalisation for YIN only
-static float g_pre_prev  = 0.0f;  // last sample for high-pass
-static float g_yin_energy = 1e-6f; // leaky RMS² tracker
-static constexpr float YIN_TARGET = 0.08f; // target RMS for YIN input
-static constexpr float YIN_MAX_GAIN = 80.0f; // cap normalisation at 80×
+static float g_pre_prev   = 0.0f;
+static float g_yin_energy = 1e-6f;
+static constexpr float YIN_TARGET   = 0.08f;
+static constexpr float YIN_MAX_GAIN = 80.0f;
+
+// Noise gate
+static float g_gate_energy = 1e-6f;         // leaky RMS² of gained signal
+static constexpr float GATE_THRESHOLD = 2e-5f; // ~-47 dBFS RMS
+static constexpr float GATE_ATTACK  = 0.9995f; // ~1000-sample (~21ms) attack
+static constexpr float GATE_RELEASE = 0.9999f; // ~5000-sample (~104ms) release
+static float g_gate_gain = 0.0f;             // smoothed 0→1 gate state
 
 // ── Audio callback ────────────────────────────────────────────────────────────
 
@@ -100,17 +107,27 @@ static void audio_callback(ma_device* /*dev*/, void* out_buf, const void* in_buf
                 g_target_ratio = std::max(0.5, std::min(2.0, ratio));
                 g_det_note   = det_round;
                 g_corr_note  = corr_int;
+            } else {
+                // No pitch — decay ratio back toward unity
+                g_target_ratio += 0.0002 * (1.0 - g_target_ratio);
             }
         }
 
         g_held_ratio += 0.001 * (g_target_ratio - g_held_ratio);
+
+        // Noise gate: track signal energy, open/close smoothly
+        g_gate_energy = 0.999f * g_gate_energy + 0.001f * s * s;
+        float gate_open = g_gate_energy > GATE_THRESHOLD ? 1.0f : 0.0f;
+        float coeff = gate_open > g_gate_gain ? (1.0f - GATE_ATTACK) : (1.0f - GATE_RELEASE);
+        g_gate_gain += coeff * (gate_open - g_gate_gain);
 
         g_rms_acc   += s * s;
         g_rms_count++;
 
         float wet = g_wet.process(s, g_held_ratio);
         float dbl = g_dbl.process(s, g_held_ratio * (float)DETUNE);
-        out[i] = (wet + dbl * (float)p.wide) * (float)p.volume;
+        float processed = (wet + dbl * (float)p.wide) * (float)p.volume;
+        out[i] = (processed * g_gate_gain) + (s * (float)p.volume * (1.0f - g_gate_gain));
 
         ++g_post_counter;
         if (g_post_counter >= POST_EVERY) {

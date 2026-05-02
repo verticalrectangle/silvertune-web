@@ -88,6 +88,10 @@ class SilvertuneProcessor extends AudioWorkletProcessor {
     this.YIN_TARGET = 0.08;
     this.YIN_MAX_G  = 80.0;
 
+    this.gateEnergy = 1e-6;
+    this.GATE_THRESH = 2e-5;
+    this.gateGain   = 0.0;
+
     this.port.onmessage = (e) => {
       const d = e.data;
       if (d.tune     !== undefined) this.tune     = d.tune;
@@ -128,6 +132,8 @@ class SilvertuneProcessor extends AudioWorkletProcessor {
       this.targetRatio   = Math.max(0.5, Math.min(2.0, ratio));
       this.detectedNote  = detMidi;
       this.correctedNote = corrMidi;
+    } else {
+      this.targetRatio += 0.0002 * (1.0 - this.targetRatio);
     }
   }
 
@@ -138,6 +144,9 @@ class SilvertuneProcessor extends AudioWorkletProcessor {
     for (let i = 0; i < input.length; i++) {
       this.heldRatio += 0.001 * (this.targetRatio - this.heldRatio);
       const s = input[i] * this.gain;
+      this.gateEnergy = 0.999 * this.gateEnergy + 0.001 * s * s;
+      const gateOpen = this.gateEnergy > this.GATE_THRESH ? 1.0 : 0.0;
+      this.gateGain += (gateOpen > this.gateGain ? 0.0005 : 0.0001) * (gateOpen - this.gateGain);
 
       const sPre = s - 0.95 * this.prePrev;
       this.prePrev = s;
@@ -157,7 +166,8 @@ class SilvertuneProcessor extends AudioWorkletProcessor {
       } else {
         const wet = this.shifter.process(s, this.heldRatio);
         const dbl = this.doubler.process(s, this.heldRatio * DETUNE);
-        output[i] = (wet + dbl * this.wide) * this.volume;
+        const processed = (wet + dbl * this.wide) * this.volume;
+        output[i] = processed * this.gateGain + s * this.volume * (1.0 - this.gateGain);
       }
     }
 
