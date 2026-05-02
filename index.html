@@ -266,7 +266,7 @@ input[type=range]::-webkit-slider-thumb {
 
 /* ── Player logo ── */
 #piano-legend {
-  position: fixed; bottom: 80px; right: 22px; z-index: 10;
+  position: fixed; z-index: 10;
   display: flex; flex-direction: column; gap: 10px;
   pointer-events: none;
 }
@@ -960,6 +960,11 @@ function drawPiano() {
   arcPhase += 0.07;
   const L = pianoLayout();
   const { wkw, wkh, bkw, bkh, x0, y0 } = L;
+  const legend = document.getElementById('piano-legend');
+  if (legend) {
+    legend.style.left  = (x0 + 7 * wkw + 20) + 'px';
+    legend.style.top   = y0 + 'px';
+  }
   const dn = rawNote;
   const cn = currentNote >= 0 ? currentNote : -1;
 
