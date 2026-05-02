@@ -82,6 +82,11 @@ class SilvertuneProcessor extends AudioWorkletProcessor {
     this.rmsAcc      = 0;
     this.rmsCount    = 0;
 
+    this.prePrev    = 0.0;
+    this.yinEnergy  = 1e-6;
+    this.YIN_TARGET = 0.08;
+    this.YIN_MAX_G  = 80.0;
+
     this.port.onmessage = (e) => {
       const d = e.data;
       if (d.tune     !== undefined) this.tune     = d.tune;
@@ -131,7 +136,12 @@ class SilvertuneProcessor extends AudioWorkletProcessor {
 
     for (let i = 0; i < input.length; i++) {
       const s = input[i] * this.gain;
-      this.yinBuf[this.yinPos++] = s;
+
+      const sPre = s - 0.95 * this.prePrev;
+      this.prePrev = s;
+      this.yinEnergy = 0.999 * this.yinEnergy + 0.001 * sPre * sPre;
+      const normG = Math.min(this.YIN_MAX_G, this.YIN_TARGET / Math.sqrt(this.yinEnergy));
+      this.yinBuf[this.yinPos++] = sPre * normG;
       if (this.yinPos >= this.YIN_BUF) {
         this._yin();
         this.yinBuf.copyWithin(0, this.YIN_HOP);
