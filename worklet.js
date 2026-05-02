@@ -65,13 +65,16 @@ class SilvertuneProcessor extends AudioWorkletProcessor {
     this.diff     = new Float32Array(512);
     this.yinPos   = 0;
 
-    this.heldRatio     = 1.0;
-    this.lockedMidi    = -1.0;
-    this.lowConfCount  = 0;
+    this.heldRatio    = 1.0;
+    this.currentRatio = 1.0;
+    this.lockedMidi   = -1.0;
+    this.holdCounter  = 0.0;
+    this.lowConfCount = 0;
     this.detectedNote  = -1;
     this.correctedNote = -1;
 
-    this.tune     = 1.0;
+    this.speedMs  = 0.0;
+    this.holdMs   = 0.0;
     this.wide     = 0.0;
     this.volume   = 1.0;
     this.gain     = 1.0;
@@ -95,7 +98,8 @@ class SilvertuneProcessor extends AudioWorkletProcessor {
 
     this.port.onmessage = (e) => {
       const d = e.data;
-      if (d.tune     !== undefined) this.tune     = d.tune;
+      if (d.speedMs  !== undefined) this.speedMs  = d.speedMs;
+      if (d.holdMs   !== undefined) this.holdMs   = d.holdMs;
       if (d.wide     !== undefined) this.wide     = d.wide;
       if (d.volume   !== undefined) this.volume   = d.volume;
       if (d.gain     !== undefined) this.gain     = d.gain;
@@ -125,24 +129,35 @@ class SilvertuneProcessor extends AudioWorkletProcessor {
     const shift = Math.abs(denom) > 1e-12 ? (s0-s2)/denom : 0;
     const hz = sampleRate / (tau + shift);
     const conf = Math.max(0, Math.min(1, 1-s1));
-    if (this.tune < 0.01) {
-      this.heldRatio = 1.0;
-    } else if (hz > 80 && hz < 2000 && conf > 0.5) {
+
+    if (hz > 80 && hz < 2000 && conf > 0.5) {
       const detMidi = hzToMidi(hz);
-      const staysLocked = this.lockedMidi >= 0 && Math.abs(detMidi - this.lockedMidi) < 0.4;
-      if (!staysLocked) this.lockedMidi = detMidi;
+
+      // Lock-once: grab midi on first confident hop, never update until released
+      if (this.lockedMidi < 0) {
+        this.lockedMidi  = detMidi;
+        this.holdCounter = 0.0;
+      }
       this.lowConfCount = 0;
-      const corrMidi = quantizeToScale(Math.round(this.lockedMidi), this.keyIdx, this.scaleIdx);
-      let ratio = midiToHz(corrMidi) / hz;
-      ratio = 1.0 + (ratio - 1.0) * this.tune;
-      this.heldRatio     = Math.max(0.5, Math.min(2.0, ratio));
-      this.detectedNote  = Math.round(detMidi);
-      this.correctedNote = corrMidi;
+
+      // Accumulate hold timer; commit ratio once threshold is met
+      this.holdCounter += this.YIN_HOP;
+      const holdThreshold = this.holdMs * sampleRate / 1000;
+      if (this.holdCounter >= holdThreshold) {
+        const corrMidi = quantizeToScale(Math.round(this.lockedMidi), this.keyIdx, this.scaleIdx);
+        const refHz    = midiToHz(this.lockedMidi);
+        const ratio    = midiToHz(corrMidi) / refHz;
+        this.heldRatio     = Math.max(0.5, Math.min(2.0, ratio));
+        this.detectedNote  = Math.round(this.lockedMidi);
+        this.correctedNote = corrMidi;
+      }
     } else if (conf < 0.35) {
       if (++this.lowConfCount >= 3) {
         this.lockedMidi   = -1.0;
+        this.holdCounter  = 0.0;
         this.lowConfCount = 0;
         this.heldRatio    = 1.0;
+        this.currentRatio = 1.0;
       }
     }
   }
@@ -150,6 +165,11 @@ class SilvertuneProcessor extends AudioWorkletProcessor {
   process(inputs, outputs) {
     const input = inputs[0]?.[0], output = outputs[0]?.[0];
     if (!input || !output) return true;
+
+    // Speed → per-sample exponential chase coefficient (99% convergence in speedMs ms)
+    const chaseCoeff = this.speedMs <= 0
+      ? 1.0
+      : 1.0 - Math.exp(-4.6 / (this.speedMs * sampleRate / 1000));
 
     for (let i = 0; i < input.length; i++) {
       const s = input[i] * this.gain;
@@ -170,11 +190,13 @@ class SilvertuneProcessor extends AudioWorkletProcessor {
       this.rmsAcc += s * s;
       this.rmsCount++;
 
+      this.currentRatio += (this.heldRatio - this.currentRatio) * chaseCoeff;
+
       if (this.bypass) {
         output[i] = s * this.volume;
       } else {
-        const wet = this.shifter.process(s, this.heldRatio);
-        const dbl = this.doubler.process(s, this.heldRatio * DETUNE);
+        const wet = this.shifter.process(s, this.currentRatio);
+        const dbl = this.doubler.process(s, this.currentRatio * DETUNE);
         const processed = (wet + dbl * this.wide) * this.volume;
         output[i] = processed * this.gateGain + s * this.volume * (1.0 - this.gateGain);
       }

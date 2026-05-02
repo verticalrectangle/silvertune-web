@@ -72,7 +72,8 @@ static constexpr uint16_t WS_PORT = 2747;
 struct Params {
     int    key       = 0;
     int    scale     = 1;
-    double tune      = 1.0;
+    double speed_ms  = 0.0;
+    double hold_ms   = 0.0;
     double wide      = 0.0;
     double gain      = 1.0;
     double volume    = 1.0;
@@ -99,8 +100,9 @@ static GrainShifter g_dbl;
 
 static double g_held_ratio    = 1.0;
 static double g_current_ratio = 1.0;
-static double g_locked_midi  = -1.0;
-static int    g_low_conf     = 0;
+static double g_locked_midi   = -1.0;
+static double g_hold_counter  = 0.0;
+static int    g_low_conf      = 0;
 static int    g_det_note     = -1;
 static int    g_corr_note    = -1;
 
@@ -148,25 +150,30 @@ static void audio_callback(ma_device* /*dev*/, void* out_buf, const void* in_buf
             g_yin.run_detect();
             float hz   = g_yin.pitch_hz;
             float conf = g_yin.confidence;
-            if (p.tune < 0.01) {
-                g_held_ratio = 1.0;
-            } else if (hz > 80.0f && hz < 2000.0f && conf > 0.5f) {
-                double det_midi    = hz_to_midi(hz);
-                bool stays_locked  = g_locked_midi >= 0.0 &&
-                                     std::fabs(det_midi - g_locked_midi) < 0.4;
-                if (!stays_locked) g_locked_midi = det_midi;
+            if (hz > 80.0f && hz < 2000.0f && conf > 0.5f) {
+                double det_midi = hz_to_midi(hz);
+                // Lock-once: set on first confident hop, never update until released
+                if (g_locked_midi < 0.0) {
+                    g_locked_midi  = det_midi;
+                    g_hold_counter = 0.0;
+                }
                 g_low_conf = 0;
-                int    det_round = (int)std::round(g_locked_midi);
-                double corr      = quantize_to_scale(det_round, p.key, p.scale);
-                int    corr_int  = (int)std::round(corr);
-                double ratio     = midi_to_hz(corr_int) / (double)hz;
-                ratio = 1.0 + (ratio - 1.0) * p.tune;
-                g_held_ratio = std::max(0.5, std::min(2.0, ratio));
-                g_det_note   = (int)std::round(det_midi);
-                g_corr_note  = corr_int;
+                // Accumulate hold timer; commit when threshold met
+                g_hold_counter += YinDetector::HOP_SIZE;
+                double hold_threshold = p.hold_ms * 48000.0 / 1000.0;
+                if (g_hold_counter >= hold_threshold) {
+                    int    det_round = (int)std::round(g_locked_midi);
+                    int    corr_int  = (int)std::round(quantize_to_scale(det_round, p.key, p.scale));
+                    double ref_hz    = midi_to_hz((float)g_locked_midi);
+                    double ratio     = midi_to_hz((float)corr_int) / ref_hz;
+                    g_held_ratio = std::max(0.5, std::min(2.0, ratio));
+                    g_det_note   = det_round;
+                    g_corr_note  = corr_int;
+                }
             } else if (conf < 0.35f) {
                 if (++g_low_conf >= 3) {
                     g_locked_midi   = -1.0;
+                    g_hold_counter  = 0.0;
                     g_low_conf      = 0;
                     g_held_ratio    = 1.0;
                     g_current_ratio = 1.0;
@@ -183,7 +190,13 @@ static void audio_callback(ma_device* /*dev*/, void* out_buf, const void* in_buf
         g_rms_acc   += s * s;
         g_rms_count++;
 
-        float chase_coeff = ((float)p.tune >= 1.0f) ? 1.0f : (float)(p.tune * p.tune * 0.03);
+        double chase_coeff;
+        if (p.speed_ms <= 0.0) {
+            chase_coeff = 1.0;
+        } else {
+            double tau = p.speed_ms * 48000.0 / 1000.0;
+            chase_coeff = 1.0 - std::exp(-4.6 / tau);
+        }
         g_current_ratio += (g_held_ratio - g_current_ratio) * chase_coeff;
 
         float wet = g_wet.process(s, g_current_ratio);
@@ -291,12 +304,13 @@ int main()
             std::string msg = ws.recv();
             if (!msg.empty()) {
                 std::lock_guard<std::mutex> lk(g_params_mtx);
-                g_params.key    = (int)json_num(msg, "key",    g_params.key);
-                g_params.scale  = (int)json_num(msg, "scale",  g_params.scale);
-                g_params.tune   = json_num(msg, "tune",   g_params.tune);
-                g_params.wide   = json_num(msg, "wide",   g_params.wide);
-                g_params.gain   = json_num(msg, "gain",   g_params.gain);
-                g_params.volume = json_num(msg, "volume", g_params.volume);
+                g_params.key      = (int)json_num(msg, "key",      g_params.key);
+                g_params.scale    = (int)json_num(msg, "scale",    g_params.scale);
+                g_params.speed_ms = json_num(msg, "speed_ms", g_params.speed_ms);
+                g_params.hold_ms  = json_num(msg, "hold_ms",  g_params.hold_ms);
+                g_params.wide     = json_num(msg, "wide",     g_params.wide);
+                g_params.gain     = json_num(msg, "gain",     g_params.gain);
+                g_params.volume   = json_num(msg, "volume",   g_params.volume);
             }
 
             std::this_thread::sleep_for(std::chrono::microseconds(500));

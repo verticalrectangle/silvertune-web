@@ -571,8 +571,11 @@ body.minimal canvas { display: none; }
         <div class="s-ctl"><label>Volume</label>
           <input type="range" id="sl-vol" min="0" max="400" value="100">
         </div>
-        <div class="s-ctl"><label>Tune</label>
-          <input type="range" id="sl-tune" min="0" max="100" value="100">
+        <div class="s-ctl"><label>Speed (ms)</label>
+          <input type="range" id="sl-speed" min="0" max="100" value="0">
+        </div>
+        <div class="s-ctl"><label>Hold (ms)</label>
+          <input type="range" id="sl-hold" min="0" max="200" value="0">
         </div>
         <div class="s-ctl"><label>Wide</label>
           <input type="range" id="sl-wide" min="0" max="100" value="0">
@@ -791,7 +794,7 @@ function attachCompanionHandlers(ws) {
 
 function sendCompanionParams() {
   if (companionWs?.readyState === WebSocket.OPEN)
-    companionWs.send(JSON.stringify({ type:'params', key:keyIdx, scale:scaleIdx, tune, wide, gain, volume }));
+    companionWs.send(JSON.stringify({ type:'params', key:keyIdx, scale:scaleIdx, speed_ms:speedMs, hold_ms:holdMs, wide, gain, volume }));
 }
 
 function updateCompanionBadge(active, outdated) {
@@ -815,7 +818,7 @@ function updateCompanionBadge(active, outdated) {
 
 // ─── Audio state ──────────────────────────────────────────────────────────────
 let workletNode, actx, audioDest;
-let tune=1.0, wide=0.0, volume=1.0, gain=1.0, keyIdx=0, scaleIdx=1;
+let speedMs=0, holdMs=0, wide=0.0, volume=1.0, gain=1.0, keyIdx=0, scaleIdx=1;
 let currentNote=-1, prevNote=-1, amplitude=0, smoothAmp=0;
 let isCorrecting = false;
 let isRunning = false;
@@ -1448,12 +1451,13 @@ function onWorkletMsg(e) {
 
 // ─── Param controls ───────────────────────────────────────────────────────────
 function sendParams() {
-  if (workletNode) workletNode.port.postMessage({ tune, volume, gain, keyIdx, scaleIdx });
+  if (workletNode) workletNode.port.postMessage({ speedMs, holdMs, volume, gain, keyIdx, scaleIdx });
   sendCompanionParams();
 }
 document.getElementById('sl-gain').addEventListener('input', e=>{ gain=e.target.value/100; sendParams(); });
 document.getElementById('sl-vol').addEventListener('input', e=>{ volume=e.target.value/100; if(workletNode) workletNode.port.postMessage({volume}); });
-document.getElementById('sl-tune').addEventListener('input', e=>{ tune=e.target.value/100; sendParams(); });
+document.getElementById('sl-speed').addEventListener('input', e=>{ speedMs=parseFloat(e.target.value); sendParams(); });
+document.getElementById('sl-hold').addEventListener('input', e=>{ holdMs=parseFloat(e.target.value); sendParams(); });
 document.getElementById('sl-wide').addEventListener('input', e=>{ wide=e.target.value/100; if(workletNode) workletNode.port.postMessage({wide}); sendCompanionParams(); });
 document.getElementById('sel-key').addEventListener('change', e=>{ keyIdx=parseInt(e.target.value); sendParams(); });
 document.getElementById('sel-scale').addEventListener('change', e=>{ scaleIdx=parseInt(e.target.value); sendParams(); });
