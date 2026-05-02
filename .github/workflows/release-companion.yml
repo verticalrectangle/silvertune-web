@@ -44,15 +44,15 @@ jobs:
 
       - name: Configure (Linux)
         if: runner.os == 'Linux'
-        run: cmake -S companion -B companion/build -DCMAKE_BUILD_TYPE=Release
+        run: cmake -S companion -B companion/build -DCMAKE_BUILD_TYPE=Release -DCOMPANION_VERSION="${{ github.event.inputs.tag }}"
 
       - name: Configure (macOS universal)
         if: runner.os == 'macOS'
-        run: cmake -S companion -B companion/build -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES="x86_64;arm64"
+        run: cmake -S companion -B companion/build -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES="x86_64;arm64" -DCOMPANION_VERSION="${{ github.event.inputs.tag }}"
 
       - name: Configure (Windows)
         if: runner.os == 'Windows'
-        run: cmake -S companion -B companion/build
+        run: cmake -S companion -B companion/build -DCOMPANION_VERSION="${{ github.event.inputs.tag }}"
 
       - name: Build
         run: cmake --build companion/build --config Release

@@ -46,3 +46,7 @@ if(MSVC)
 else()
   target_compile_options(silvertune-companion PRIVATE -O2 -Wall)
 endif()
+
+if(DEFINED COMPANION_VERSION)
+  target_compile_definitions(silvertune-companion PRIVATE COMPANION_VERSION="${COMPANION_VERSION}")
+endif()

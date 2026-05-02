@@ -696,6 +696,13 @@ resize();
 // ─── Companion WebSocket ──────────────────────────────────────────────────────
 let companionWs = null, companionActive = false;
 const COMPANION_URL = 'ws://127.0.0.1:2747';
+let latestCompanionTag = null;
+fetch('https://api.github.com/repos/verticalrectangle/silvertune-web/releases')
+  .then(r => r.json())
+  .then(releases => {
+    const rel = releases.find(r => r.tag_name.startsWith('companion-'));
+    if (rel) latestCompanionTag = rel.tag_name;
+  }).catch(() => {});
 
 function probeCompanion() {
   return new Promise(resolve => {
@@ -718,7 +725,7 @@ function probeCompanion() {
 function attachCompanionHandlers(ws) {
   ws.onmessage = e => {
     let msg; try { msg = JSON.parse(e.data); } catch { return; }
-    if (msg.type === 'version') { if (msg.v !== '0.2.3') updateCompanionBadge(true, true); }
+    if (msg.type === 'version') { if (latestCompanionTag && msg.v !== latestCompanionTag) updateCompanionBadge(true, true); }
     if (msg.type === 'pitch') onWorkletMsg({ data: { detectedNote: msg.detectedNote, correctedNote: msg.correctedNote, rms: msg.rms } });
   };
   ws.onclose = () => {
