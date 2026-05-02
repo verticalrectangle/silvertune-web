@@ -15,6 +15,55 @@
 #include <string>
 #include <thread>
 
+#ifdef _WIN32
+  #include <windows.h>
+  #include <process.h>
+  static std::string pid_path() { char t[MAX_PATH]; GetTempPathA(MAX_PATH,t); return std::string(t)+"silvertune-companion.pid"; }
+  static int  get_pid()  { return (int)GetCurrentProcessId(); }
+  static bool pid_alive(int pid) { HANDLE h=OpenProcess(SYNCHRONIZE,FALSE,(DWORD)pid); if(!h) return false; DWORD r=WaitForSingleObject(h,0); CloseHandle(h); return r==WAIT_TIMEOUT; }
+  static void kill_pid(int pid)  { HANDLE h=OpenProcess(PROCESS_TERMINATE,FALSE,(DWORD)pid); if(h){TerminateProcess(h,0);CloseHandle(h);} }
+#else
+  #include <signal.h>
+  #include <unistd.h>
+  static std::string pid_path() { return "/tmp/silvertune-companion.pid"; }
+  static int  get_pid()  { return (int)getpid(); }
+  static bool pid_alive(int pid) { return kill(pid, 0) == 0; }
+  static void kill_pid(int pid)  { kill(pid, SIGKILL); }
+#endif
+
+static std::atomic<bool> g_running{true};
+
+static void handle_pidfile() {
+    std::string path = pid_path();
+    // Kill any existing instance
+    FILE* f = std::fopen(path.c_str(), "r");
+    if (f) {
+        int old_pid = 0;
+        std::fscanf(f, "%d", &old_pid);
+        std::fclose(f);
+        if (old_pid > 0 && pid_alive(old_pid)) {
+            std::printf("Killing previous instance (pid %d)\n", old_pid);
+            kill_pid(old_pid);
+            std::this_thread::sleep_for(std::chrono::milliseconds(200));
+        }
+    }
+    // Write own PID
+    f = std::fopen(path.c_str(), "w");
+    if (f) { std::fprintf(f, "%d\n", get_pid()); std::fclose(f); }
+}
+
+static void remove_pidfile() {
+    std::remove(pid_path().c_str());
+}
+
+#ifdef _WIN32
+static BOOL WINAPI ctrl_handler(DWORD) { g_running.store(false); return TRUE; }
+static void setup_signals() { SetConsoleCtrlHandler(ctrl_handler, TRUE); }
+#else
+static void sig_handler(int) { g_running.store(false); }
+static void setup_signals() { signal(SIGTERM, sig_handler); signal(SIGINT, sig_handler); }
+#endif
+
 // ── Shared state ──────────────────────────────────────────────────────────────
 
 static constexpr double DETUNE = 1.00463;
@@ -164,6 +213,9 @@ static std::string json_pitch(int det, int corr, float rms) {
 
 int main()
 {
+    setup_signals();
+    handle_pidfile();
+
     std::printf("Silvertune Companion " COMPANION_VERSION "\n");
     std::printf("Listening on ws://127.0.0.1:%u\n", (unsigned)WS_PORT);
     std::fflush(stdout);
@@ -197,7 +249,7 @@ int main()
 
     WsServer ws(WS_PORT);
 
-    while (true) {
+    while (g_running.load()) {
         std::printf("Waiting for browser connection...\n");
         std::fflush(stdout);
 
@@ -210,7 +262,7 @@ int main()
         std::fflush(stdout);
         ws.send(std::string("{\"type\":\"version\",\"v\":\"") + COMPANION_VERSION + "\"}");
 
-        while (ws.connected()) {
+        while (g_running.load() && ws.connected()) {
             // Send pitch report if ready
             if (g_report_ready.load(std::memory_order_acquire)) {
                 PitchReport r;
@@ -242,5 +294,6 @@ int main()
     }
 
     ma_device_uninit(&dev);
+    remove_pidfile();
     return 0;
 }
