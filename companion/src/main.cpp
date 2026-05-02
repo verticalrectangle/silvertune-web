@@ -268,7 +268,6 @@ static void audio_callback(ma_device* /*dev*/, void* out_buf, const void* in_buf
                 int    corr_int  = (int)std::round(corr);
                 double ref_hz    = midi_to_hz((float)g_locked_midi);
                 double ratio     = midi_to_hz(corr_int) / ref_hz;
-                ratio = 1.0 + (ratio - 1.0) * p.tune;
                 g_held_ratio = std::max(0.5, std::min(2.0, ratio));
                 g_det_note   = (int)std::round(det_midi);
                 g_corr_note  = corr_int;

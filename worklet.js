@@ -241,8 +241,7 @@ class SilvertuneProcessor extends AudioWorkletProcessor {
       this.lowConfCount = 0;
       const corrMidi = quantizeToScale(Math.round(this.lockedMidi), this.keyIdx, this.scaleIdx);
       const refHz = midiToHz(this.lockedMidi);
-      let ratio = midiToHz(corrMidi) / refHz;
-      ratio = 1.0 + (ratio - 1.0) * this.tune;
+      const ratio = midiToHz(corrMidi) / refHz;
       this.heldRatio     = Math.max(0.5, Math.min(2.0, ratio));
       this.detectedNote  = Math.round(detMidi);
       this.correctedNote = corrMidi;
