@@ -128,24 +128,13 @@ class SilvertuneProcessor extends AudioWorkletProcessor {
     if (this.tune < 0.01) {
       this.heldRatio = 1.0;
     } else if (hz > 80 && hz < 2000 && conf > 0.5) {
-      const detMidiF = hzToMidi(hz);
-      const detMidi  = Math.round(detMidiF);
+      const detMidi  = Math.round(hzToMidi(hz));
       const corrMidi = quantizeToScale(detMidi, this.keyIdx, this.scaleIdx);
-      const centsOff = Math.abs(detMidiF - corrMidi) * 100;
+      let ratio = midiToHz(corrMidi) / hz;
+      ratio = 1.0 + (ratio - 1.0) * this.tune;
+      this.heldRatio     = Math.max(0.5, Math.min(2.0, ratio));
       this.detectedNote  = detMidi;
       this.correctedNote = corrMidi;
-      if (centsOff < 40) {
-        this.heldRatio = 1.0;
-      } else {
-        let ratio = midiToHz(corrMidi) / hz;
-        ratio = 1.0 + (ratio - 1.0) * this.tune;
-        const newRatio = Math.max(0.5, Math.min(2.0, ratio));
-        if (Math.abs(newRatio - this.heldRatio) > 0.06) {
-          this.shifter.resetPhases();
-          this.doubler.resetPhases();
-        }
-        this.heldRatio = newRatio;
-      }
     } else {
       this.heldRatio = 1.0;
     }
