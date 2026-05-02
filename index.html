@@ -336,8 +336,15 @@ body.minimal canvas { display: none; }
 #start {
   position: fixed; inset: 0; background: #080a0e;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
-  gap: 22px; cursor: pointer; z-index: 30;
+  gap: 22px; z-index: 30;
 }
+#btn-try {
+  font-size: 13px; font-weight: 500; letter-spacing: 0.18em; text-transform: uppercase;
+  color: #fff; font-family: inherit; background: none;
+  border: 1px solid rgba(255,255,255,0.3); padding: 10px 28px;
+  cursor: pointer; transition: border-color 0.15s;
+}
+#btn-try:hover { border-color: rgba(255,255,255,0.65); }
 #start-logo {
   width: 72px; height: 72px; opacity: 0.92;
 }
@@ -349,10 +356,6 @@ body.minimal canvas { display: none; }
 #start .tagline {
   font-size: 16px; font-weight: 400; color: rgba(255,255,255,0.7);
   letter-spacing: 0.01em; max-width: 480px; text-align: center; line-height: 1.5;
-}
-#start .sub {
-  font-size: 13px; font-weight: 500; letter-spacing: 0.18em;
-  text-transform: uppercase; color: #fff;
 }
 #companion-cta, #plugin-cta {
   display: flex; flex-direction: column; align-items: center; gap: 10px;
@@ -456,8 +459,8 @@ body.minimal canvas { display: none; }
   </svg>
   <h1>SILVERTUNE</h1>
   <p class="tagline">Industry standard 100% FLOSS autotune.<br>Now in your browser.</p>
-  <p class="sub">(Try before downloading)</p>
-  <div id="companion-cta" onclick="event.stopPropagation()">
+  <button id="btn-try">(Try before downloading)</button>
+  <div id="companion-cta">
     <p class="cta-label">experiencing latency?</p>
     <div class="cta-links">
       <a class="cta-btn" href="https://github.com/verticalrectangle/silvertune-web/releases/latest/download/silvertune-companion-linux" download>Linux</a>
@@ -485,7 +488,7 @@ body.minimal canvas { display: none; }
       </div>
     </div>
   </div>
-  <div id="plugin-cta" onclick="event.stopPropagation()">
+  <div id="plugin-cta">
     <p class="cta-label">use in your daw?</p>
     <div class="cta-links">
       <a class="cta-btn" href="https://github.com/epsilver/silvertune/releases/latest/download/silvertune-linux.zip" target="_blank" rel="noopener">Linux</a>
@@ -1404,7 +1407,7 @@ document.getElementById('rec-cancel-btn').addEventListener('click', ()=>{
 });
 
 // ─── Start ────────────────────────────────────────────────────────────────────
-document.getElementById('start').addEventListener('click', async () => {
+document.getElementById('btn-try').addEventListener('click', async () => {
   document.getElementById('start').remove();
 
   // Try native companion first — if running, it handles all audio at OS latency
