@@ -533,7 +533,10 @@ body.minimal canvas { display: none; }
       <a class="cta-btn" href="https://github.com/epsilver/silvertune/releases/latest/download/silvertune-windows.zip" target="_blank" rel="noopener">Windows</a>
     </div>
     <p class="cta-sub">clap · vst3 · auv2</p>
-    <p class="cta-sub" style="opacity:0.5; font-size:0.75em; margin-top:6px;">macOS: if your DAW won't scan it, run <code>xattr -rd com.apple.quarantine</code> on the plugin file</p>
+    <div style="margin-top:12px; display:flex; flex-direction:column; align-items:center; gap:4px;">
+      <div class="setup-os">macOS — if your DAW won't scan it</div>
+      <div class="setup-code"><span>xattr -rd com.apple.quarantine Silvertune.clap</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+    </div>
   </div>
   <div id="changelog"></div>
   <a id="github-link" href="https://github.com/verticalrectangle/silvertune-web" target="_blank" rel="noopener">GitHub</a>
