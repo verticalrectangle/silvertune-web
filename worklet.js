@@ -58,11 +58,11 @@ class SilvertuneProcessor extends AudioWorkletProcessor {
     this.shifter = new GrainShifter();
     this.doubler = new GrainShifter();
 
-    this.YIN_BUF  = 512;
-    this.YIN_HALF = 256;
+    this.YIN_BUF  = 1024;
+    this.YIN_HALF = 512;
     this.YIN_HOP  = 32;
-    this.yinBuf   = new Float32Array(512);
-    this.diff     = new Float32Array(256);
+    this.yinBuf   = new Float32Array(1024);
+    this.diff     = new Float32Array(512);
     this.yinPos   = 0;
 
     this.heldRatio     = 1.0;
