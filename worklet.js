@@ -128,14 +128,13 @@ class SilvertuneProcessor extends AudioWorkletProcessor {
     if (!input || !output) return true;
 
     for (let i = 0; i < input.length; i++) {
+      const s = Math.tanh(input[i] * this.gain);
       this.yinBuf[this.yinPos++] = s;
       if (this.yinPos >= this.YIN_BUF) {
         this._yin();
         this.yinBuf.copyWithin(0, this.YIN_HOP);
         this.yinPos = this.YIN_BUF - this.YIN_HOP;
       }
-
-      const s = Math.tanh(input[i] * this.gain);
       this.rmsAcc += s * s;
       this.rmsCount++;
 
