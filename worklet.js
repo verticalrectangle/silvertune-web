@@ -133,8 +133,9 @@ class SilvertuneProcessor extends AudioWorkletProcessor {
     if (hz > 80 && hz < 2000 && conf > 0.5) {
       const detMidi = hzToMidi(hz);
 
-      // Lock-once: grab midi on first confident hop, never update until released
-      if (this.lockedMidi < 0) {
+      // Update lock when: no lock yet, or pitch moved >0.4 semitones (new note)
+      const staysLocked = this.lockedMidi >= 0 && Math.abs(detMidi - this.lockedMidi) < 0.4;
+      if (!staysLocked) {
         this.lockedMidi  = detMidi;
         this.holdCounter = 0.0;
       }

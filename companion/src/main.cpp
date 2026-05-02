@@ -152,8 +152,10 @@ static void audio_callback(ma_device* /*dev*/, void* out_buf, const void* in_buf
             float conf = g_yin.confidence;
             if (hz > 80.0f && hz < 2000.0f && conf > 0.5f) {
                 double det_midi = hz_to_midi(hz);
-                // Lock-once: set on first confident hop, never update until released
-                if (g_locked_midi < 0.0) {
+                // Update lock when: no lock yet, or pitch moved >0.4 semitones (new note)
+                bool stays_locked = g_locked_midi >= 0.0 &&
+                                    std::fabs(det_midi - g_locked_midi) < 0.4;
+                if (!stays_locked) {
                     g_locked_midi  = det_midi;
                     g_hold_counter = 0.0;
                 }
