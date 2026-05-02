@@ -4,9 +4,9 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Release tag (e.g. companion-v0.1.0)'
+        description: 'Release tag (e.g. companion-v0.2.0)'
         required: true
-        default: 'companion-v0.1.0'
+        default: 'companion-v0.2.0'
       target:
         description: 'Platform to build (linux / macos / windows / all)'
         required: false
@@ -23,69 +23,43 @@ jobs:
         include:
           - os: ubuntu-22.04
             artifact: silvertune-companion-linux
-            binary: target/release/silvertune-companion
+            binary: companion/build/silvertune-companion
           - os: windows-latest
             artifact: silvertune-companion-windows.exe
-            binary: target/release/silvertune-companion.exe
+            binary: companion/build/Release/silvertune-companion.exe
           - os: macos-latest
             artifact: silvertune-companion-macos
-            binary: target/release/silvertune-companion
+            binary: companion/build/silvertune-companion
 
     runs-on: ${{ matrix.os }}
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
-
       - name: Install Linux system deps
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y \
-            libwebkit2gtk-4.1-dev \
-            libssl-dev \
-            libayatana-appindicator3-dev \
-            librsvg2-dev \
-            libasound2-dev \
-            pkg-config
+          sudo apt-get install -y libasound2-dev cmake
 
-      - name: Install Tauri CLI
-        if: runner.os != 'Windows'
-        run: cargo install tauri-cli --version "^2.0" --locked
-
-      - name: Build macOS universal binary
-        if: runner.os == 'macOS'
-        run: |
-          rustup target add x86_64-apple-darwin aarch64-apple-darwin
-          cd companion
-          cargo tauri build --target universal-apple-darwin --ci
-        env:
-          TAURI_SIGNING_PRIVATE_KEY: ""
-
-      - name: Build Linux
+      - name: Configure (Linux)
         if: runner.os == 'Linux'
-        run: |
-          cd companion
-          cargo tauri build --ci
-        env:
-          TAURI_SIGNING_PRIVATE_KEY: ""
+        run: cmake -S companion -B companion/build -DCMAKE_BUILD_TYPE=Release
 
-      - name: Build Windows
-        if: runner.os == 'Windows'
-        run: |
-          cd companion
-          cargo build --release
-
-      - name: Locate macOS binary
+      - name: Configure (macOS universal)
         if: runner.os == 'macOS'
-        run: |
-          cp target/universal-apple-darwin/release/silvertune-companion target/release/silvertune-companion || true
+        run: cmake -S companion -B companion/build -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES="x86_64;arm64"
+
+      - name: Configure (Windows)
+        if: runner.os == 'Windows'
+        run: cmake -S companion -B companion/build
+
+      - name: Build
+        run: cmake --build companion/build --config Release
 
       - name: Rename binary
         shell: bash
-        run: cp ${{ matrix.binary }} ${{ matrix.artifact }}
+        run: cp "${{ matrix.binary }}" "${{ matrix.artifact }}"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -125,12 +99,11 @@ jobs:
             **macOS**
             ```bash
             chmod +x silvertune-companion-macos
+            # right-click → Open to bypass Gatekeeper on first run
             ./silvertune-companion-macos
             ```
 
             **Windows** — download `silvertune-companion-windows.exe` and run it.
-
-            The companion runs as a system tray app. Open silvertune.live in your browser and the "⬡ companion" badge will appear when connected.
           files: |
             artifacts/silvertune-companion-linux/silvertune-companion-linux
             artifacts/silvertune-companion-macos/silvertune-companion-macos
