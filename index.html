@@ -289,7 +289,10 @@ input[type=range]::-webkit-slider-thumb {
 .setup-col  { display:flex; flex-direction:column; gap:5px; min-width:200px; }
 .setup-os   { font-size:13px; letter-spacing:0.18em; text-transform:uppercase; color:#fff; margin-bottom:3px; }
 .setup-step { font-size:15px; color:#fff; letter-spacing:0; }
-.setup-code { font-size:14px; font-family:monospace; color:#fff; letter-spacing:0; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.15); padding:4px 10px; display:inline-block; }
+.setup-code { font-size:14px; font-family:monospace; color:#fff; letter-spacing:0; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.15); padding:4px 10px 4px 10px; display:inline-flex; align-items:center; gap:10px; }
+.setup-code .copy-btn { font-size:10px; font-family:inherit; letter-spacing:0.12em; text-transform:uppercase; color:rgba(255,255,255,0.4); background:none; border:none; cursor:pointer; padding:0; flex-shrink:0; transition:color 0.15s; }
+.setup-code .copy-btn:hover { color:#fff; }
+.setup-code .copy-btn.copied { color:#4cffaa; }
 .setup-note { font-size:13px; color:#fff; margin-top:2px; font-style:italic; letter-spacing:0; }
 
 /* ── Minimal toggle button ── */
@@ -472,14 +475,14 @@ body.minimal canvas { display: none; }
     <div class="cta-setup">
       <div class="setup-col">
         <div class="setup-os">Linux</div>
-        <div class="setup-code">chmod +x silvertune-companion-linux</div>
-        <div class="setup-code">./silvertune-companion-linux</div>
+        <div class="setup-code"><span>chmod +x silvertune-companion-linux</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+        <div class="setup-code"><span>./silvertune-companion-linux</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
         <div class="setup-note">disable mic monitoring in pavucontrol if you hear yourself dry</div>
       </div>
       <div class="setup-col">
         <div class="setup-os">macOS</div>
-        <div class="setup-code">chmod +x silvertune-companion-macos</div>
-        <div class="setup-code">./silvertune-companion-macos</div>
+        <div class="setup-code"><span>chmod +x silvertune-companion-macos</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+        <div class="setup-code"><span>./silvertune-companion-macos</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
         <div class="setup-step">right-click → Open (bypasses Gatekeeper)</div>
         <div class="setup-step">allow mic access when prompted</div>
       </div>
@@ -628,6 +631,15 @@ body.minimal canvas { display: none; }
 </div>
 
 <script>
+function copyCode(btn) {
+  const text = btn.previousElementSibling.textContent;
+  navigator.clipboard.writeText(text).then(() => {
+    btn.textContent = '✓';
+    btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = 'copy'; btn.classList.remove('copied'); }, 1500);
+  });
+}
+
 // ─── Constants ────────────────────────────────────────────────────────────────
 const KEYS     = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
 const NOTE_HUE = [215,212,210,218,207,213,216,210,214,208,212,217];
