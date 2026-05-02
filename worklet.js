@@ -72,6 +72,7 @@ class SilvertuneProcessor extends AudioWorkletProcessor {
     this.tune     = 1.0;
     this.wide     = 0.0;
     this.volume   = 1.0;
+    this.gain     = 1.0;
     this.keyIdx   = 0;
     this.scaleIdx = 1;
     this.bypass   = false;
@@ -86,6 +87,7 @@ class SilvertuneProcessor extends AudioWorkletProcessor {
       if (d.tune     !== undefined) this.tune     = d.tune;
       if (d.wide     !== undefined) this.wide     = d.wide;
       if (d.volume   !== undefined) this.volume   = d.volume;
+      if (d.gain     !== undefined) this.gain     = d.gain;
       if (d.keyIdx   !== undefined) this.keyIdx   = d.keyIdx;
       if (d.scaleIdx !== undefined) this.scaleIdx = d.scaleIdx;
       if (d.bypass   !== undefined) this.bypass   = d.bypass;
@@ -128,7 +130,7 @@ class SilvertuneProcessor extends AudioWorkletProcessor {
     if (!input || !output) return true;
 
     for (let i = 0; i < input.length; i++) {
-      const s = input[i];
+      const s = input[i] * this.gain;
       this.yinBuf[this.yinPos++] = s;
       if (this.yinPos >= this.YIN_BUF) {
         this._yin();
