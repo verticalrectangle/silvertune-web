@@ -718,7 +718,7 @@ function probeCompanion() {
 function attachCompanionHandlers(ws) {
   ws.onmessage = e => {
     let msg; try { msg = JSON.parse(e.data); } catch { return; }
-    if (msg.type === 'version') { if (msg.v !== '0.2.1') updateCompanionBadge(true, true); }
+    if (msg.type === 'version') { if (msg.v !== '0.2.2') updateCompanionBadge(true, true); }
     if (msg.type === 'pitch') onWorkletMsg({ data: { detectedNote: msg.detectedNote, correctedNote: msg.correctedNote, rms: msg.rms } });
   };
   ws.onclose = () => {
