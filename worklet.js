@@ -71,7 +71,7 @@ class SilvertuneProcessor extends AudioWorkletProcessor {
 
     this.tune     = 1.0;
     this.wide     = 0.0;
-    this.gain     = 1.0;
+    this.volume   = 1.0;
     this.keyIdx   = 0;
     this.scaleIdx = 1;
     this.bypass   = false;
@@ -85,7 +85,7 @@ class SilvertuneProcessor extends AudioWorkletProcessor {
       const d = e.data;
       if (d.tune     !== undefined) this.tune     = d.tune;
       if (d.wide     !== undefined) this.wide     = d.wide;
-      if (d.gain     !== undefined) this.gain     = d.gain;
+      if (d.volume   !== undefined) this.volume   = d.volume;
       if (d.keyIdx   !== undefined) this.keyIdx   = d.keyIdx;
       if (d.scaleIdx !== undefined) this.scaleIdx = d.scaleIdx;
       if (d.bypass   !== undefined) this.bypass   = d.bypass;
@@ -128,7 +128,7 @@ class SilvertuneProcessor extends AudioWorkletProcessor {
     if (!input || !output) return true;
 
     for (let i = 0; i < input.length; i++) {
-      const s = Math.tanh(input[i] * this.gain);
+      const s = input[i];
       this.yinBuf[this.yinPos++] = s;
       if (this.yinPos >= this.YIN_BUF) {
         this._yin();
@@ -139,11 +139,11 @@ class SilvertuneProcessor extends AudioWorkletProcessor {
       this.rmsCount++;
 
       if (this.bypass) {
-        output[i] = s;
+        output[i] = s * this.volume;
       } else {
         const wet = this.shifter.process(s, this.heldRatio);
         const dbl = this.doubler.process(s, this.heldRatio * DETUNE);
-        output[i] = wet + dbl * this.wide;
+        output[i] = (wet + dbl * this.wide) * this.volume;
       }
     }
 
