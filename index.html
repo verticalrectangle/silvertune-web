@@ -1480,7 +1480,7 @@ document.getElementById('btn-try').addEventListener('click', async () => {
   actx = new AudioContext({ latencyHint: 'interactive' });
   console.log(`base: ${actx.baseLatency*1000|0}ms  output: ${actx.outputLatency*1000|0}ms  sr: ${actx.sampleRate}Hz`);
   const source = actx.createMediaStreamSource(stream);
-  await actx.audioWorklet.addModule('worklet.js');
+  await actx.audioWorklet.addModule('worklet.js?v=' + Date.now());
   workletNode = new AudioWorkletNode(actx,'silvertune-processor',{
     numberOfInputs:1, numberOfOutputs:1, outputChannelCount:[1],
   });
