@@ -250,9 +250,7 @@ static void audio_callback(ma_device* /*dev*/, void* out_buf, const void* in_buf
                 g_held_ratio = 1.0;
             } else if (use_hz > 80.0f && use_hz < 2000.0f && conf > 0.5f) {
                 double det_midi    = hz_to_midi(use_hz);
-                bool stays_locked  = g_locked_midi >= 0.0 &&
-                                     std::fabs(det_midi - g_locked_midi) < 0.4;
-                if (!stays_locked) g_locked_midi = det_midi;
+                if (g_locked_midi < 0.0) g_locked_midi = det_midi;
                 g_low_conf = 0;
                 int    det_round = (int)std::round(g_locked_midi);
                 double corr      = quantize_to_scale(det_round, p.key, p.scale);

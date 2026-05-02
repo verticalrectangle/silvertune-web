@@ -228,8 +228,7 @@ class SilvertuneProcessor extends AudioWorkletProcessor {
       this.heldRatio = 1.0;
     } else if (useHz > 80 && useHz < 2000 && conf > 0.5) {
       const detMidi = hzToMidi(useHz);
-      const staysLocked = this.lockedMidi >= 0 && Math.abs(detMidi - this.lockedMidi) < 0.4;
-      if (!staysLocked) this.lockedMidi = detMidi;
+      if (this.lockedMidi < 0) this.lockedMidi = detMidi;
       this.lowConfCount = 0;
       const corrMidi = quantizeToScale(Math.round(this.lockedMidi), this.keyIdx, this.scaleIdx);
       const refHz = midiToHz(this.lockedMidi);
