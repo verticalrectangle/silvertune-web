@@ -1,71 +1,62 @@
-# Silvertune
+# silvertune-web
 
-Browser-based autotune with a live piano visualization. No backend, no dependencies — one HTML file and one AudioWorklet.
-
-**Live:** [silvertune.live](https://silvertune.live)
+Source for [silvertune.live](https://silvertune.live) — browser-based real-time pitch correction. No install, no backend, one HTML file and one AudioWorklet.
 
 ---
 
-## What it does
+## How it works
 
-Silvertune takes your microphone input, detects the pitch in real time using a hand-rolled YIN algorithm, snaps it to the nearest note in the selected scale, and pitch-shifts the audio using a 3-tap grain shifter. Output goes directly to your speakers with near-zero latency.
-
-A canvas piano in the center of the screen shows which note is being detected (blue) and which note it's being corrected to (white, pressed). A dashed arc animates between the two when correction is active. Keys outside the current scale are overlaid with a dark mask.
-
----
-
-## Controls
-
-| Control | What it does |
-|---|---|
-| **Key** | Root key for the scale |
-| **Scale** | Chromatic (no correction) / Major / Minor |
-| **Tune** | Correction strength — 0% is dry pitch, 100% is fully snapped |
-| **Wide** | Stereo doubler blend |
-| **Input / Output** | Audio device selection (Settings tab) |
-| **▣** (bottom right) | Minimal mode — hides the canvas visualizer |
-
----
-
-## Architecture
+Microphone input is processed entirely on the audio thread inside an `AudioWorkletProcessor`. The worklet runs YIN pitch detection, quantizes the detected note to the chosen scale, and pitch-shifts the audio through a two-tap grain shifter. Output goes directly to your speakers.
 
 ```
 Microphone
     │
     ▼
-AudioWorkletNode  (worklet.js — runs on dedicated audio thread)
-    │  ├─ YIN pitch detection  (BUF=512, HALF=256, HOP=32)
-    │  ├─ Scale quantization
-    │  └─ 3-tap grain shifter  (COLA, phases 0 / ⅓ / ⅔, Hann window)
-    │
-    ├──▶ actx.destination  (live monitor)
-    └──▶ MediaStreamDestination  (recording)
+AudioWorkletNode  (worklet.js)
+    ├─ YIN pitch detection        BUF=1024, HALF=512, HOP=32
+    ├─ Scale quantization
+    ├─ Exponential correction curve  coeff = tune² × 0.03
+    └─ Two-tap grain shifter      Hann window, phases 0 / 0.5
+         │
+         ├──▶ actx.destination        (monitor)
+         └──▶ MediaStreamDestination  (recording)
 
 Main thread  (index.html)
-    ├─ Canvas render loop  (requestAnimationFrame)
-    │   ├─ Animated silver/white blob background
-    │   ├─ Sonar rings + orb flashes on note events
-    │   └─ Piano visualization  (OffscreenCanvas cache for inactive keys)
+    ├─ Canvas render loop
+    │   ├─ Background animation
+    │   ├─ Sonar rings + note flash events
+    │   └─ Piano visualization
     └─ XMB-style navigation  (FX · Sound · Rec · Settings)
 ```
 
-### Pitch detection
+---
 
-YIN runs inline per sample. Every `HOP` (32) samples the circular buffer is shifted and a new CMND difference function is computed. Pitch is estimated via parabolic interpolation on the normalized difference function, then converted to the nearest MIDI note.
+## Controls
 
-### Grain shifter
-
-Three overlapping grains with phases `[0, 1/3, 2/3]` of the grain size (128 samples). Each grain reads from the pitch-shifted position using a Hann window and COLA normalization (×2/3). The pitch ratio is computed from the interval between detected and target note, blended by the Tune parameter.
+| Control | Description |
+|---------|-------------|
+| **Key** | Root key for the scale |
+| **Scale** | Major / Minor / Chromatic |
+| **Tune** | Correction strength — 0% dry, 100% fully snapped |
+| **Wide** | Stereo doubler blend (+8 cents detune) |
+| **Input / Output** | Audio device selection (Settings tab) |
+| **▣** | Minimal mode — hides the canvas |
 
 ---
 
-## Recording
+## Companion app
 
-**Video + Audio** — captures the canvas + processed audio as WebM using `MediaRecorder`.
+For lower latency than the browser allows, run the native companion binary before opening the site. It connects via WebSocket on port 2747 and the page detects it automatically.
 
-**Audio Only** — captures processed audio only via `MediaStreamDestination`.
+Download from [Releases](../../releases) or build from source:
 
-Files download automatically when you stop recording.
+```bash
+cmake -S companion -B companion/build -DCMAKE_BUILD_TYPE=Release
+cmake --build companion/build
+./companion/build/silvertune-companion
+```
+
+Linux requires `libasound2-dev`.
 
 ---
 
@@ -82,4 +73,10 @@ AudioWorklets require a secure context (HTTPS or localhost).
 
 ## Deployment
 
-GitHub Actions deploys to GitHub Pages on every push to `master`. Custom domain configured via `CNAME`.
+GitHub Actions deploys to GitHub Pages on every push to `master`. Custom domain set via `CNAME`.
+
+---
+
+## License
+
+MIT
