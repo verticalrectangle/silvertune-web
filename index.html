@@ -733,7 +733,7 @@ function attachCompanionHandlers(ws) {
 
 function sendCompanionParams() {
   if (companionWs?.readyState === WebSocket.OPEN)
-    companionWs.send(JSON.stringify({ type:'params', key:keyIdx, scale:scaleIdx, tune, wide }));
+    companionWs.send(JSON.stringify({ type:'params', key:keyIdx, scale:scaleIdx, tune, wide, gain, volume }));
 }
 
 function updateCompanionBadge(active, outdated) {

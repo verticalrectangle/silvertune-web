@@ -22,9 +22,11 @@ static constexpr uint16_t WS_PORT = 2747;
 
 struct Params {
     int    key       = 0;
-    int    scale     = 1;   // major by default
+    int    scale     = 1;
     double tune      = 1.0;
     double wide      = 0.0;
+    double gain      = 1.0;
+    double volume    = 1.0;
 };
 
 struct PitchReport {
@@ -66,7 +68,7 @@ static void audio_callback(ma_device* /*dev*/, void* out_buf, const void* in_buf
     { std::lock_guard<std::mutex> lk(g_params_mtx); p = g_params; }
 
     for (ma_uint32 i = 0; i < n; ++i) {
-        float s = in[i];
+        float s = in[i] * (float)p.gain;
 
         g_yin.push_sample(s);
         if (g_yin.pending) {
@@ -91,7 +93,7 @@ static void audio_callback(ma_device* /*dev*/, void* out_buf, const void* in_buf
 
         float wet = g_wet.process(s, g_held_ratio);
         float dbl = g_dbl.process(s, g_held_ratio * (float)DETUNE);
-        out[i] = wet + dbl * (float)p.wide;
+        out[i] = (wet + dbl * (float)p.wide) * (float)p.volume;
 
         ++g_post_counter;
         if (g_post_counter >= POST_EVERY) {
@@ -191,12 +193,13 @@ int main()
             // Receive params (non-blocking)
             std::string msg = ws.recv();
             if (!msg.empty()) {
-                // Expect {"type":"params","key":K,"scale":S,"tune":T,"wide":W}
                 std::lock_guard<std::mutex> lk(g_params_mtx);
-                g_params.key   = (int)json_num(msg, "key",   g_params.key);
-                g_params.scale = (int)json_num(msg, "scale", g_params.scale);
-                g_params.tune  = json_num(msg, "tune",  g_params.tune);
-                g_params.wide  = json_num(msg, "wide",  g_params.wide);
+                g_params.key    = (int)json_num(msg, "key",    g_params.key);
+                g_params.scale  = (int)json_num(msg, "scale",  g_params.scale);
+                g_params.tune   = json_num(msg, "tune",   g_params.tune);
+                g_params.wide   = json_num(msg, "wide",   g_params.wide);
+                g_params.gain   = json_num(msg, "gain",   g_params.gain);
+                g_params.volume = json_num(msg, "volume", g_params.volume);
             }
 
             std::this_thread::sleep_for(std::chrono::microseconds(500));
