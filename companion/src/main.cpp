@@ -264,8 +264,6 @@ int main()
         std::fflush(stdout);
 
         if (!ws.accept()) {
-            std::fprintf(stderr, "accept() failed, retrying in 1s\n");
-            std::this_thread::sleep_for(std::chrono::seconds(1));
             continue;
         }
         std::printf("Browser connected\n");

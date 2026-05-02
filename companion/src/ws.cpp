@@ -41,6 +41,14 @@ WsServer::WsServer(uint16_t port) {
     int yes = 1;
     setsockopt(srv, SOL_SOCKET, SO_REUSEADDR, (const char*)&yes, sizeof(yes));
 
+#ifdef _WIN32
+    DWORD tv_ms = 1000;
+    setsockopt(srv, SOL_SOCKET, SO_RCVTIMEO, (const char*)&tv_ms, sizeof(tv_ms));
+#else
+    struct timeval tv{ 1, 0 };
+    setsockopt(srv, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
+#endif
+
     sockaddr_in addr{};
     addr.sin_family      = AF_INET;
     addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
